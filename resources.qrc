@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/">
+        <file>SphereView.qml</file>
+    </qresource>
+</RCC>
