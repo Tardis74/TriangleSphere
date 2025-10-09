@@ -6,7 +6,8 @@
 #include <QPointF>
 #include "dragpoint.h"
 
-class TriangleScene : public QGraphicsScene {
+class TriangleScene : public QGraphicsScene
+{
     Q_OBJECT
 public:
     explicit TriangleScene(QObject* parent = nullptr);
@@ -15,21 +16,30 @@ public:
     void updateTriangle();
     QList<QPointF> getPoints() const;
     QList<double> getMasses() const;
-    QString getPointCoordinates() const;
     void setPoints(const QList<QPointF>& points);
+    void setMasses(const QList<double>& masses); // Новый метод
+    QRectF itemsBoundingRect() const;
 
 signals:
     void triangleUpdated();
-    void coordinatesUpdated(const QString& coords);
-    void dragFinished(); // Добавляем сигнал окончания перетаскивания
+    void dragFinished();
+    void sceneDragStarted();
+    void sceneDragFinished();
+    void pointPositionChanging();
 
 protected:
+    void mousePressEvent(QGraphicsSceneMouseEvent* event) override;
+    void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
+    void mouseReleaseEvent(QGraphicsSceneMouseEvent* event) override;
     void contextMenuEvent(QGraphicsSceneContextMenuEvent* event) override;
 
 private:
     QList<DragPoint*> points;
     QList<QGraphicsLineItem*> lines;
     QList<QGraphicsSimpleTextItem*> labels;
+
+    bool isDraggingScene = false;
+    QPointF lastDragPos;
 };
 
 #endif // TRIANGLESCENE_H

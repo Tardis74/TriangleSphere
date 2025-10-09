@@ -6,49 +6,86 @@
 #include <QPen>
 #include <QMenu>
 #include <QInputDialog>
-#include <QGraphicsSceneContextMenuEvent>
+#include <QGraphicsSceneMouseEvent>
 #include <QMessageBox>
 #include <limits>
 
-TriangleScene::TriangleScene(QObject* parent) : QGraphicsScene(parent) {
-    // Create points with initial positions and masses
-    points.append(new DragPoint(100, 100, 15, 1.0));
-    points.append(new DragPoint(200, 100, 15, 1.0));
-    points.append(new DragPoint(150, 200, 15, 1.0));
+TriangleScene::TriangleScene(QObject* parent) : QGraphicsScene(parent)
+{
+    qDebug() << "TriangleScene constructor started";
 
-    // Add points to scene and connect signals
-    for (auto point : points) {
-        addItem(point);
-        connect(point, &DragPoint::positionChanged, this, &TriangleScene::updateTriangle);
-        connect(point, &DragPoint::dragFinished, this, [this]() {
-            updateTriangle();
-            emit dragFinished(); // Испускаем сигнал при окончании перетаскивания
-        });
+    try {
+        // Устанавливаем фиксированную область сцены
+        setSceneRect(0, 0, 200, 200);
 
-        // Enable context menu for points
-        point->setFlag(QGraphicsItem::ItemIsSelectable, true);
-        point->setFlag(QGraphicsItem::ItemIsFocusable, true);
-        point->setAcceptHoverEvents(true);
+        // Создаем точки
+        points.append(new DragPoint(50, 50, 8, 1.0));
+        points.append(new DragPoint(100, 50, 8, 1.0));
+        points.append(new DragPoint(75, 100, 8, 1.0));
+
+        qDebug() << "Points created";
+
+        // Добавляем точки к сцене и подключаем сигналы
+        for (auto point : points) {
+            if (point) {
+                addItem(point);
+                connect(point, &DragPoint::positionChanged, this, &TriangleScene::updateTriangle);
+                connect(point, &DragPoint::positionChanging, this, &TriangleScene::updateTriangle);
+                connect(point, &DragPoint::dragFinished, this, [this]() {
+                    updateTriangle();
+                    emit dragFinished();
+                });
+
+                point->setFlag(QGraphicsItem::ItemIsSelectable, true);
+                point->setFlag(QGraphicsItem::ItemIsFocusable, true);
+                point->setAcceptHoverEvents(true);
+            }
+        }
+
+        // Создаем линии
+        for (int i = 0; i < 3; ++i) {
+            QGraphicsLineItem* line = new QGraphicsLineItem();
+            if (line) {
+                addItem(line);
+                lines.append(line);
+            }
+        }
+
+        qDebug() << "Lines created";
+
+        // Создаем метки
+        for (int i = 0; i < 3; ++i) {
+            QGraphicsSimpleTextItem* label = new QGraphicsSimpleTextItem();
+            if (label) {
+                addItem(label);
+                labels.append(label);
+                label->setZValue(10);
+                label->setBrush(QBrush(Qt::black));
+
+                QFont font = label->font();
+                font.setPointSize(8);
+                label->setFont(font);
+            }
+        }
+
+        qDebug() << "Labels created";
+
+        // Инициализируем треугольник
+        updateTriangle();
+
+        qDebug() << "TriangleScene constructor completed";
     }
-
-    // Create lines and labels
-    for (int i = 0; i < 3; ++i) {
-        QGraphicsLineItem* line = new QGraphicsLineItem();
-        addItem(line);
-        lines.append(line);
-
-        QGraphicsSimpleTextItem* label = new QGraphicsSimpleTextItem("");
-        addItem(label);
-        labels.append(label);
-        label->setZValue(10);
-        label->setBrush(QBrush(Qt::black));
+    catch (const std::exception& e) {
+        qCritical() << "Exception in TriangleScene constructor: " << e.what();
     }
-
-    // Initialize triangle
-    updateTriangle();
+    catch (...) {
+        qCritical() << "Unknown exception in TriangleScene constructor";
+    }
 }
-TriangleScene::~TriangleScene() {
-    // Disconnect all signals first
+
+TriangleScene::~TriangleScene()
+{
+    // Отключаем все сигналы сначала
     for (auto point : points) {
         if (point) {
             disconnect(point, &DragPoint::positionChanged, this, &TriangleScene::updateTriangle);
@@ -56,7 +93,7 @@ TriangleScene::~TriangleScene() {
         }
     }
 
-    // Delete all objects
+    // Удаляем все объекты
     for (auto point : points) {
         if (point) delete point;
     }
@@ -68,81 +105,63 @@ TriangleScene::~TriangleScene() {
     }
 }
 
-void TriangleScene::updateTriangle() {
-    // Check if all pointers are valid
-    for (int i = 0; i < 3; ++i) {
-        if (!points[i] || !lines[i] || !labels[i]) {
-            qWarning() << "Invalid pointers in updateTriangle";
-            return;
-        }
-
-        QPointF p1 = points[i]->pos();
-        QPointF p2 = points[(i+1)%3]->pos();
-
-        // Update triangle lines
-        lines[i]->setLine(QLineF(p1, p2));
-
-        // Update labels with coordinates and mass
-        // Use scientific notation for very large or very small masses
-        QString massStr;
-        double mass = points[i]->mass();
-        if (mass > 1000 || (mass < 0.001 && mass > 0)) {
-            massStr = QString::number(mass, 'e', 3);
-        } else {
-            massStr = QString::number(mass, 'f', 3);
-        }
-
-        labels[i]->setText(QString("P%1: (%2, %3)\nM: %4")
-                               .arg(i+1)
-                               .arg(p1.x(), 0, 'f', 1)
-                               .arg(p1.y(), 0, 'f', 1)
-                               .arg(massStr));
-        labels[i]->setPos(p1 + QPointF(10, -30));
+void TriangleScene::updateTriangle()
+{
+    // Проверяем, что у нас есть достаточно элементов
+    if (points.size() != 3 || lines.size() != 3 || labels.size() != 3) {
+        qWarning() << "Invalid number of elements in updateTriangle";
+        return;
     }
 
-    // Update scene area with some margin
-    QRectF rect = itemsBoundingRect();
-    if (rect.isValid() && !rect.isNull()) {
-        // Ограничиваем максимальный размер сцены
-        const qreal maxSize = 1000.0;
-        if (rect.width() > maxSize || rect.height() > maxSize) {
-            // Если сцена слишком большая, центрируем и устанавливаем разумный размер
-            QPointF center = rect.center();
-            rect = QRectF(center.x() - maxSize/2, center.y() - maxSize/2,
-                          maxSize, maxSize);
-        } else {
-            rect.adjust(-50, -50, 50, 50);
-        }
-        setSceneRect(rect);
-    }
+    try {
+        for (int i = 0; i < 3; ++i) {
+            if (!points[i] || !lines[i] || !labels[i]) {
+                qWarning() << "Invalid pointers in updateTriangle at index" << i;
+                continue;
+            }
 
-    // Emit signals
-    emit triangleUpdated();
-    emit coordinatesUpdated(getPointCoordinates());
+            QPointF p1 = points[i]->pos();
+            QPointF p2 = points[(i+1)%3]->pos();
+
+            // Обновляем линии треугольника
+            lines[i]->setLine(QLineF(p1, p2));
+
+            // Обновляем метки
+            QString massStr;
+            double mass = points[i]->mass();
+            if (mass > 1000 || (mass < 0.001 && mass > 0)) {
+                massStr = QString::number(mass, 'e', 3);
+            } else {
+                massStr = QString::number(mass, 'f', 3);
+            }
+
+            labels[i]->setText(QString("P%1: (%2, %3)\nM: %4")
+                                   .arg(i+1)
+                                   .arg(p1.x(), 0, 'f', 1)
+                                   .arg(p1.y(), 0, 'f', 1)
+                                   .arg(massStr));
+            labels[i]->setPos(p1 + QPointF(10, -30));
+        }
+
+        // Убедимся, что сигнал испускается
+        emit triangleUpdated();
+    }
+    catch (const std::exception& e) {
+        qCritical() << "Exception in updateTriangle: " << e.what();
+    }
+    catch (...) {
+        qCritical() << "Unknown exception in updateTriangle";
+    }
 }
 
-void TriangleScene::setPoints(const QList<QPointF>& newPoints) {
+void TriangleScene::setPoints(const QList<QPointF>& newPoints)
+{
     if (newPoints.size() != 3) {
         qWarning() << "setPoints requires exactly 3 points, got" << newPoints.size();
         return;
     }
 
-    // Check for NaN or Inf values
-    for (int i = 0; i < 3; ++i) {
-        if (std::isnan(newPoints[i].x()) || std::isinf(newPoints[i].x()) ||
-            std::isnan(newPoints[i].y()) || std::isinf(newPoints[i].y())) {
-            qWarning() << "Invalid point coordinates at index" << i << ":" << newPoints[i];
-            return;
-        }
-
-        // Limit point coordinates to prevent extreme values
-        if (std::abs(newPoints[i].x()) > 10000 || std::abs(newPoints[i].y()) > 10000) {
-            qWarning() << "Point coordinates out of range at index" << i << ":" << newPoints[i];
-            return;
-        }
-    }
-
-    // Check if points are valid
+    // Проверяем указатели
     for (int i = 0; i < 3; ++i) {
         if (!points[i]) {
             qWarning() << "Invalid point pointer at index" << i;
@@ -150,14 +169,22 @@ void TriangleScene::setPoints(const QList<QPointF>& newPoints) {
         }
     }
 
-    // Temporarily block signals to prevent recursive updates
+    // Проверяем координаты
+    for (int i = 0; i < 3; ++i) {
+        if (std::isnan(newPoints[i].x()) || std::isinf(newPoints[i].x()) ||
+            std::isnan(newPoints[i].y()) || std::isinf(newPoints[i].y())) {
+            qWarning() << "Invalid point coordinates at index" << i << ":" << newPoints[i];
+            return;
+        }
+    }
+
+    // Временно блокируем сигналы
     bool wasBlocked = signalsBlocked();
     blockSignals(true);
 
     try {
-        // Set new positions using silent method to prevent unwanted signals
+        // Устанавливаем новые позиции
         for (int i = 0; i < 3; ++i) {
-            // Cast to DragPoint and use the silent method if available
             DragPoint* point = dynamic_cast<DragPoint*>(points[i]);
             if (point) {
                 point->setPosSilent(newPoints[i]);
@@ -166,7 +193,7 @@ void TriangleScene::setPoints(const QList<QPointF>& newPoints) {
             }
         }
 
-        // Update the triangle
+        // Обновляем треугольник
         updateTriangle();
     }
     catch (const std::exception& e) {
@@ -176,58 +203,143 @@ void TriangleScene::setPoints(const QList<QPointF>& newPoints) {
         qWarning() << "Unknown exception in setPoints";
     }
 
-    // Restore signal blocking state
+    // Восстанавливаем блокировку сигналов
     blockSignals(wasBlocked);
 }
 
-QList<QPointF> TriangleScene::getPoints() const {
+QList<QPointF> TriangleScene::getPoints() const
+{
     QList<QPointF> result;
     for (int i = 0; i < 3; ++i) {
-        if (points[i]) {
+        if (i < points.size() && points[i]) {
             result.append(points[i]->pos());
         } else {
+            qWarning() << "Invalid point access in getPoints at index" << i;
             result.append(QPointF(0, 0));
         }
     }
     return result;
 }
 
-QList<double> TriangleScene::getMasses() const {
+QList<double> TriangleScene::getMasses() const
+{
     QList<double> result;
     for (int i = 0; i < 3; ++i) {
-        if (points[i]) {
+        if (i < points.size() && points[i]) {
             result.append(points[i]->mass());
         } else {
+            qWarning() << "Invalid point access in getMasses at index" << i;
             result.append(1.0);
         }
     }
     return result;
 }
 
-QString TriangleScene::getPointCoordinates() const {
-    QString coords;
-    for (int i = 0; i < 3; ++i) {
-        QPointF p = points[i] ? points[i]->pos() : QPointF(0, 0);
-        double m = points[i] ? points[i]->mass() : 1.0;
-
-        // Use scientific notation for very large or very small masses
-        QString massStr;
-        if (m > 1000 || (m < 0.001 && m > 0)) {
-            massStr = QString::number(m, 'e', 3);
-        } else {
-            massStr = QString::number(m, 'f', 3);
+QRectF TriangleScene::itemsBoundingRect() const
+{
+    QRectF rect;
+    for (auto point : points) {
+        if (point) {
+            rect = rect.united(point->sceneBoundingRect());
         }
-
-        coords += QString("P%1: (%2, %3) M: %4\n")
-                      .arg(i+1)
-                      .arg(p.x(), 0, 'f', 1)
-                      .arg(p.y(), 0, 'f', 1)
-                      .arg(massStr);
     }
-    return coords;
+    return rect;
 }
 
-void TriangleScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event) {
+void TriangleScene::mousePressEvent(QGraphicsSceneMouseEvent* event)
+{
+    // Если нажата левая кнопка и не на элементе - начинаем перетаскивание сцены
+    if (event->button() == Qt::LeftButton && !itemAt(event->scenePos(), QTransform())) {
+        isDraggingScene = true;
+        lastDragPos = event->scenePos();
+        emit sceneDragStarted();
+        event->accept();
+        return;
+    }
+    QGraphicsScene::mousePressEvent(event);
+}
+
+void TriangleScene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
+{
+    if (isDraggingScene) {
+        QPointF delta = event->scenePos() - lastDragPos;
+        lastDragPos = event->scenePos();
+
+        // Перемещаем все точки
+        for (auto point : points) {
+            if (point) {
+                point->setPos(point->pos() + delta);
+            }
+        }
+        updateTriangle();
+        // Немедленно отправляем сигнал об изменении
+        emit triangleUpdated();
+        event->accept();
+        return;
+    }
+    QGraphicsScene::mouseMoveEvent(event);
+}
+
+void TriangleScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton && isDraggingScene) {
+        isDraggingScene = false;
+        emit sceneDragFinished();
+        emit dragFinished();
+        event->accept();
+        return;
+    }
+    QGraphicsScene::mouseReleaseEvent(event);
+}
+
+void TriangleScene::setMasses(const QList<double>& masses) {
+    if (masses.size() != 3) {
+        qWarning() << "setMasses requires exactly 3 masses, got" << masses.size();
+        return;
+    }
+
+    // Проверяем указатели
+    for (int i = 0; i < 3; ++i) {
+        if (!points[i]) {
+            qWarning() << "Invalid point pointer at index" << i;
+            return;
+        }
+    }
+
+    // Проверяем массы
+    for (int i = 0; i < 3; ++i) {
+        if (std::isnan(masses[i]) || std::isinf(masses[i]) || masses[i] <= 0) {
+            qWarning() << "Invalid mass at index" << i << ":" << masses[i];
+            return;
+        }
+    }
+
+    // Временно блокируем сигналы
+    bool wasBlocked = signalsBlocked();
+    blockSignals(true);
+
+    try {
+        // Устанавливаем новые массы
+        for (int i = 0; i < 3; ++i) {
+            points[i]->setMass(masses[i]);
+        }
+
+        // Обновляем треугольник
+        updateTriangle();
+    }
+    catch (const std::exception& e) {
+        qWarning() << "Exception in setMasses:" << e.what();
+    }
+    catch (...) {
+        qWarning() << "Unknown exception in setMasses";
+    }
+
+    // Восстанавливаем блокировку сигналов
+    blockSignals(wasBlocked);
+}
+
+void TriangleScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event)
+{
     QGraphicsItem* item = itemAt(event->scenePos(), QTransform());
     DragPoint* point = dynamic_cast<DragPoint*>(item);
 
@@ -239,31 +351,21 @@ void TriangleScene::contextMenuEvent(QGraphicsSceneContextMenuEvent* event) {
 
         if (selectedAction == editMassAction) {
             bool ok;
-            // Remove limits on mass values
             double mass = QInputDialog::getDouble(nullptr, "Edit Mass",
                                                   "Mass:", point->mass(),
                                                   -std::numeric_limits<double>::max(),
                                                   std::numeric_limits<double>::max(),
                                                   6, &ok);
             if (ok) {
-                // Check for valid mass
                 if (std::isnan(mass) || std::isinf(mass)) {
                     QMessageBox::warning(nullptr, "Invalid Mass",
                                          "Mass value is not a valid number.");
                     return;
                 }
 
-                // Check for negative mass
-                if (mass < 0) {
+                if (mass <= 0) {
                     QMessageBox::warning(nullptr, "Invalid Mass",
-                                         "Mass cannot be negative.");
-                    return;
-                }
-
-                // Check for zero mass
-                if (mass == 0) {
-                    QMessageBox::warning(nullptr, "Invalid Mass",
-                                         "Mass cannot be zero.");
+                                         "Mass must be positive.");
                     return;
                 }
 

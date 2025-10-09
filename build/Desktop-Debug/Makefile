@@ -532,6 +532,7 @@ moc_mainwindow.cpp: ../../mainwindow.h \
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../mainwindow.h -o moc_mainwindow.cpp
 
 moc_spherewidget.cpp: ../../spherewidget.h \
+		../../dragpoint.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../spherewidget.h -o moc_spherewidget.cpp
@@ -575,7 +576,8 @@ mainwindow.o: ../../mainwindow.cpp ../../mainwindow.h \
 coordtransform.o: ../../coordtransform.cpp ../../coordtransform.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o coordtransform.o ../../coordtransform.cpp
 
-spherewidget.o: ../../spherewidget.cpp ../../spherewidget.h
+spherewidget.o: ../../spherewidget.cpp ../../spherewidget.h \
+		../../dragpoint.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o spherewidget.o ../../spherewidget.cpp
 
 moc_dragpoint.o: moc_dragpoint.cpp 

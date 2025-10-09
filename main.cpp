@@ -1,3 +1,4 @@
+
 #include "mainwindow.h"
 #include <QApplication>
 #include <QDebug>
@@ -19,8 +20,14 @@ int main(int argc, char* argv[]) {
 
     try {
         QApplication app(argc, argv);
+
+        // Устанавливаем глобальные настройки для предотвращения проблем
+        QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
+        QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+
         MainWindow mainWindow;
         mainWindow.show();
+
         return app.exec();
     }
     catch (const std::exception& e) {

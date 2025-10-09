@@ -26,9 +26,13 @@ signals:
     void positionChanged();
     void dragFinished();
     void massChanged(double mass);
+    void positionChanging();
 
 private:
     double m_mass;
+
+protected:
+    void mouseMoveEvent(QGraphicsSceneMouseEvent* event) override;
 };
 
 #endif // DRAGPOINT_H

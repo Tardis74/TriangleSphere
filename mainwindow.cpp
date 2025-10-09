@@ -1,165 +1,273 @@
 #include "mainwindow.h"
 #include <QVBoxLayout>
-#include <QPushButton>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QPushButton>
+#include <QSplitter>
+#include <QLineEdit>
 #include <QTimer>
 #include <QDebug>
 #include <QMessageBox>
-#include <QWheelEvent>
+#include <QDoubleValidator>
+#include <QFrame>
 #include "coordtransform.h"
 
-MainWindow::MainWindow() : updatingTextFromScene(false), blockSceneUpdates(false),
-    updatingFromTriangle(false), updatingFromSphere(false),
-    lastSpherePoint(0, 0, 0) {
-    //qDebug() << "MainWindow constructor started";
+MainWindow::MainWindow() :
+    blockSceneUpdates(false),
+    lastSpherePoint(0, 0, 0)
+{
+    qDebug() << "MainWindow constructor started";
 
-    // Setup triangle window
-    QWidget* centralWidget = new QWidget;
-    QVBoxLayout* layout = new QVBoxLayout;
+    try {
+        // Создаем главный splitter
+        mainSplitter = new QSplitter(Qt::Horizontal, this);
 
-    // Create coordinates text edit with instructions
-    coordinatesTextEdit = new QPlainTextEdit;
-    coordinatesTextEdit->setMinimumHeight(80);
-    coordinatesTextEdit->setStyleSheet("QPlainTextEdit { "
-                                       "background-color: #f0f0f0; "
-                                       "color: #000000; "
-                                       "padding: 5px; "
-                                       "border: 1px solid #ccc; "
-                                       "font-family: monospace; "
-                                       "}");
-    coordinatesTextEdit->setPlaceholderText("Coordinates and masses are displayed here");
-    coordinatesTextEdit->setReadOnly(true);
-    layout->addWidget(coordinatesTextEdit);
+        // Левая панель - треугольник
+        QWidget* leftPanel = new QWidget;
+        QVBoxLayout* leftLayout = new QVBoxLayout;
 
-    // Create info label
-    QLabel* infoLabel = new QLabel("Drag points to modify triangle. Right-click to change mass. Use mouse wheel to zoom.");
-    infoLabel->setStyleSheet("QLabel { color: #666; padding: 5px; }");
-    layout->addWidget(infoLabel);
+        // Создаем метку для координат сферы
+        sphereCoordsLabel = new QLabel("Sphere point: (0.000, 0.000, 0.000)");
+        sphereCoordsLabel->setStyleSheet("QLabel { color: #333; padding: 8px; background-color: #f0f0f0; border: 1px solid #ccc; font-weight: bold; }");
+        leftLayout->addWidget(sphereCoordsLabel);
 
-    // Create graphics view and scene
-    view = new QGraphicsView;
-    scene = new TriangleScene;
+        // Создаем info label
+        QLabel* infoLabel = new QLabel("Drag points to modify triangle. Right-click to change mass. Use +/- buttons to zoom. Drag background to move entire triangle. Use 'Switch Mode' button to toggle between sphere rotation and point movement modes.");
+        infoLabel->setStyleSheet("QLabel { color: #666; padding: 8px; background-color: #f8f8f8; border: 1px solid #ddd; }");
+        infoLabel->setWordWrap(true);
+        leftLayout->addWidget(infoLabel);
 
-    view->setScene(scene);
-    view->setRenderHint(QPainter::Antialiasing);
-    view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    view->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    view->setStyleSheet("QGraphicsView { border: 1px solid #ccc; background-color: white; }");
-    view->setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
-    view->setResizeAnchor(QGraphicsView::AnchorUnderMouse);
+        // Создаем graphics view и scene
+        view = new QGraphicsView;
+        scene = new TriangleScene(this);
 
-    layout->addWidget(view);
+        qDebug() << "Scene and view created";
 
-    // Create button to reset view
-    QPushButton* resetButton = new QPushButton("Reset View and Zoom");
-    resetButton->setStyleSheet("QPushButton { padding: 5px; }");
-    layout->addWidget(resetButton);
+        view->setScene(scene);
+        view->setRenderHint(QPainter::Antialiasing);
+        view->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        view->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+        view->setStyleSheet("QGraphicsView { border: 2px solid #aaa; background-color: white; }");
+        view->setDragMode(QGraphicsView::RubberBandDrag);
 
-    centralWidget->setLayout(layout);
-    setCentralWidget(centralWidget);
+        leftLayout->addWidget(view);
 
-    // Setup 3D sphere window
-    sphereWidget = new SphereWidget;
-    sphereWidget->setWindowTitle("3D Sphere Projection - Drag to rotate, Scroll to zoom, Left-click to set point");
-    sphereWidget->resize(600, 600);
+        // Фрейм для координат точек (только чтение)
+        QFrame* coordsFrame = new QFrame;
+        coordsFrame->setFrameStyle(QFrame::Box);
+        coordsFrame->setLineWidth(1);
+        QVBoxLayout* coordsFrameLayout = new QVBoxLayout(coordsFrame);
 
-    //qDebug() << "MainWindow constructor about to show sphereWidget";
-    sphereWidget->show();
-    //qDebug() << "MainWindow constructor sphereWidget shown";
+        QLabel* coordsTitle = new QLabel("Координаты точек");
+        coordsTitle->setStyleSheet("QLabel { font-weight: bold; color: black; }");
+        coordsFrameLayout->addWidget(coordsTitle);
 
-    // Connect signals and slots
-    connect(scene, &TriangleScene::coordinatesUpdated, this, &MainWindow::updateCoordinatesText);
-    // Убираем автоматическое обновление сферы при изменении треугольника
-    // connect(scene, &TriangleScene::triangleUpdated, this, &MainWindow::updateSpherePoint);
-    connect(sphereWidget, &SphereWidget::spherePointClicked, this, &MainWindow::handleSpherePointClicked);
+        coordsLabel = new QLabel();
+        coordsLabel->setStyleSheet("QLabel { color: #333; padding: 5px; background-color: #f8f8f8; border: 1px solid #ddd; font-family: monospace; }");
+        coordsLabel->setTextFormat(Qt::PlainText);
+        coordsLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        coordsFrameLayout->addWidget(coordsLabel);
 
-    // Подключаемся к сигналу окончания перетаскивания
-    connect(scene, &TriangleScene::dragFinished, this, &MainWindow::onDragFinished);
+        leftLayout->addWidget(coordsFrame);
 
-    connect(resetButton, &QPushButton::clicked, this, [this]() {
-        QList<QPointF> defaultPoints = {
-            QPointF(100, 100),
-            QPointF(200, 100),
-            QPointF(150, 200)
-        };
-        blockSceneUpdates = true;
-        scene->setPoints(defaultPoints);
-        blockSceneUpdates = false;
+        // Панель для ввода масс
+        QFrame* massFrame = new QFrame;
+        massFrame->setFrameStyle(QFrame::Box);
+        massFrame->setLineWidth(1);
+        QVBoxLayout* massFrameLayout = new QVBoxLayout(massFrame);
 
-        // Сбрасываем трансформацию и устанавливаем разумный масштаб
-        view->resetTransform();
-        view->scale(1.0, 1.0); // Устанавливаем единичный масштаб
+        QLabel* massTitle = new QLabel("Массы");
+        massTitle->setStyleSheet("QLabel { font-weight: bold; color: black; }");
+        massFrameLayout->addWidget(massTitle);
 
-        // Принудительно обновляем сферу после сброса
-        updateSpherePoint();
-    });
+        QHBoxLayout* massLayout = new QHBoxLayout;
 
-    // Initial update
-    updateCoordinatesText(scene->getPointCoordinates());
+        mass1Edit = new QLineEdit("1.0");
+        mass2Edit = new QLineEdit("1.0");
+        mass3Edit = new QLineEdit("1.0");
 
-    // Delayed call for auto-scaling
-    QTimer::singleShot(100, this, &MainWindow::autoScaleView);
+        // Устанавливаем валидаторы для ввода только чисел
+        QDoubleValidator* validator = new QDoubleValidator(0.001, 1000.0, 3, this);
+        mass1Edit->setValidator(validator);
+        mass2Edit->setValidator(validator);
+        mass3Edit->setValidator(validator);
 
-    // Delayed call for initial sphere update
-    QTimer::singleShot(100, this, &MainWindow::updateSpherePoint);
+        mass1Edit->setMaximumWidth(60);
+        mass2Edit->setMaximumWidth(60);
+        mass3Edit->setMaximumWidth(60);
 
-    //qDebug() << "MainWindow constructor completed";
+        setMassesButton = new QPushButton("Set Masses");
+        setMassesButton->setStyleSheet("QPushButton { padding: 5px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+
+        massLayout->addWidget(new QLabel("P1:"));
+        massLayout->addWidget(mass1Edit);
+        massLayout->addWidget(new QLabel("P2:"));
+        massLayout->addWidget(mass2Edit);
+        massLayout->addWidget(new QLabel("P3:"));
+        massLayout->addWidget(mass3Edit);
+        massLayout->addWidget(setMassesButton);
+        massLayout->addStretch();
+
+        massFrameLayout->addLayout(massLayout);
+        leftLayout->addWidget(massFrame);
+
+        // Создаем панель управления с кнопками масштабирования
+        QHBoxLayout* controlLayout = new QHBoxLayout;
+
+        // Кнопка уменьшения масштаба
+        zoomOutButton = new QPushButton("-");
+        zoomOutButton->setFixedSize(40, 35);
+        zoomOutButton->setStyleSheet("QPushButton { font-size: 18px; font-weight: bold; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+
+        // Кнопка увеличения масштаба
+        zoomInButton = new QPushButton("+");
+        zoomInButton->setFixedSize(40, 35);
+        zoomInButton->setStyleSheet("QPushButton { font-size: 18px; font-weight: bold; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+
+        // Кнопка сброса
+        resetButton = new QPushButton("Reset View");
+        resetButton->setFixedHeight(35); // Устанавливаем такую же высоту, как у других кнопок
+        resetButton->setStyleSheet("QPushButton { padding: 8px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+
+        // Кнопка переключения режимов сферы - одинакового размера с resetButton
+        toggleModeButton = new QPushButton("Switch to Point Move");
+        toggleModeButton->setFixedHeight(35); // Такая же высота, как у resetButton
+        toggleModeButton->setStyleSheet("QPushButton { padding: 8px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+
+        // Добавляем кнопки в layout
+        controlLayout->addWidget(zoomOutButton);
+        controlLayout->addWidget(zoomInButton);
+        controlLayout->addWidget(resetButton);
+        controlLayout->addWidget(toggleModeButton);
+        controlLayout->addStretch();
+
+        leftLayout->addLayout(controlLayout);
+
+        leftPanel->setLayout(leftLayout);
+
+        // Правая панель - сфера
+        sphereWidget = new SphereWidget;
+        sphereWidget->setMinimumSize(500, 500);
+
+        qDebug() << "SphereWidget created";
+
+        // Добавляем панели в splitter
+        mainSplitter->addWidget(leftPanel);
+        mainSplitter->addWidget(sphereWidget);
+
+        // Устанавливаем пропорции (40% треугольник, 60% сфера)
+        mainSplitter->setStretchFactor(0, 4);
+        mainSplitter->setStretchFactor(1, 6);
+
+        setCentralWidget(mainSplitter);
+        setWindowTitle("Triangle-Sphere Projection System");
+        resize(1200, 700);
+
+        // Подключаем сигналы и слоты
+        connect(scene, &TriangleScene::dragFinished, this, &MainWindow::onDragFinished);
+        connect(scene, &TriangleScene::triangleUpdated, this, &MainWindow::updatePointCoordinates);
+        connect(sphereWidget, &SphereWidget::spherePointClicked, this, &MainWindow::handleSpherePointClicked);
+        connect(scene, &TriangleScene::pointPositionChanging, this, &MainWindow::updateSpherePoint);
+
+        // Подключаем сигналы для изменения курсора
+        connect(scene, &TriangleScene::sceneDragStarted, this, [this]() {
+            if (view) {
+                view->setCursor(Qt::ClosedHandCursor);
+            }
+        });
+        connect(scene, &TriangleScene::sceneDragFinished, this, [this]() {
+            if (view) {
+                view->setCursor(Qt::ArrowCursor);
+            }
+        });
+
+        // Подключаем кнопки масштабирования
+        connect(zoomInButton, &QPushButton::clicked, this, &MainWindow::zoomIn);
+        connect(zoomOutButton, &QPushButton::clicked, this, &MainWindow::zoomOut);
+
+        // Подключаем кнопку установки масс
+        connect(setMassesButton, &QPushButton::clicked, this, &MainWindow::setMasses);
+
+        // Подключаем кнопку переключения режимов
+        connect(toggleModeButton, &QPushButton::clicked, this, [this]() {
+            bool currentMode = sphereWidget->getRotationMode();
+            sphereWidget->setRotationMode(!currentMode);
+
+            if (!currentMode) {
+                toggleModeButton->setText("Switch to Point Move");
+                if (view) view->setCursor(Qt::ArrowCursor);
+            } else {
+                toggleModeButton->setText("Switch to Sphere Rotate");
+                if (view) view->setCursor(Qt::PointingHandCursor);
+            }
+        });
+
+        connect(resetButton, &QPushButton::clicked, this, [this]() {
+            QList<QPointF> defaultPoints = {
+                QPointF(50, 50),
+                QPointF(100, 50),
+                QPointF(75, 100)
+            };
+            blockSceneUpdates = true;
+            scene->setPoints(defaultPoints);
+            blockSceneUpdates = false;
+
+            // Сбрасываем массы в полях ввода
+            mass1Edit->setText("1.0");
+            mass2Edit->setText("1.0");
+            mass3Edit->setText("1.0");
+
+            view->resetTransform();
+            view->scale(1.0, 1.0);
+            view->centerOn(75, 75);
+
+            updateSpherePoint();
+            updatePointCoordinates();
+        });
+
+        // Центрируем вид на треугольник
+        QTimer::singleShot(100, this, [this]() {
+            if (view) {
+                view->resetTransform();
+                view->scale(1.0, 1.0);
+                view->centerOn(75, 75);
+            }
+        });
+
+        // Обновляем сферу и координаты
+        QTimer::singleShot(100, this, &MainWindow::updateSpherePoint);
+        QTimer::singleShot(100, this, &MainWindow::updatePointCoordinates);
+
+        qDebug() << "MainWindow constructor completed successfully";
+    }
+    catch (const std::exception& e) {
+        qCritical() << "Exception in MainWindow constructor: " << e.what();
+    }
+    catch (...) {
+        qCritical() << "Unknown exception in MainWindow constructor";
+    }
 }
 
-MainWindow::~MainWindow() {
+MainWindow::~MainWindow()
+{
     if (sphereWidget) {
         delete sphereWidget;
     }
 }
 
-void MainWindow::updateCoordinatesText(const QString& coords) {
-    if (updatingTextFromScene) return;
-
-    updatingTextFromScene = true;
-    coordinatesTextEdit->blockSignals(true);
-    coordinatesTextEdit->setPlainText(coords);
-    coordinatesTextEdit->blockSignals(false);
-    updatingTextFromScene = false;
-}
-
-void MainWindow::autoScaleView() {
-    if (scene && view) {
-        QRectF rect = scene->sceneRect();
-        if (rect.isValid() && !rect.isNull()) {
-            // Ограничиваем максимальный масштаб
-            const qreal maxViewSize = 10000.0;
-            if (rect.width() > maxViewSize || rect.height() > maxViewSize) {
-                // Если сцена слишком большая, не масштабируем автоматически
-                return;
-            }
-            view->fitInView(rect, Qt::KeepAspectRatio);
-        }
-    }
-}
-
-void MainWindow::onDragFinished() {
-    // Обновляем сферу только после окончания перетаскивания
-    updateSpherePoint();
-}
-
-void MainWindow::updateSpherePoint() {
-    std::lock_guard<std::mutex> lock(updateMutex);
-
+void MainWindow::updateSpherePoint()
+{
     if (updatingFromSphere) {
-        //qDebug() << "UpdateSpherePoint: updatingFromSphere is true, skipping";
         return;
     }
 
-    //qDebug() << "UpdateSpherePoint: blockSceneUpdates =" << blockSceneUpdates.load();
-    if (!sphereWidget || blockSceneUpdates.load()) {
-        //qDebug() << "UpdateSpherePoint: early return";
+    if (!sphereWidget || !scene) {
         return;
     }
 
     updatingFromTriangle = true;
 
     try {
-        // Check if OpenGL context is valid
         if (!sphereWidget->isValid()) {
             qWarning() << "OpenGL context is not valid";
             updatingFromTriangle = false;
@@ -169,42 +277,37 @@ void MainWindow::updateSpherePoint() {
         auto points = scene->getPoints();
         auto masses = scene->getMasses();
 
-        // Validate points before transformation
-        for (int i = 0; i < 3; ++i) {
-            if (std::isnan(points[i].x()) || std::isinf(points[i].x()) ||
-                std::isnan(points[i].y()) || std::isinf(points[i].y())) {
-                qWarning() << "Invalid point coordinates in updateSpherePoint:" << points[i];
-                updatingFromTriangle = false;
-                return;
-            }
+        if (points.size() != 3 || masses.size() != 3) {
+            qWarning() << "Invalid points or masses count";
+            updatingFromTriangle = false;
+            return;
         }
+
+        sphereWidget->setMasses(masses);
 
         QVector3D spherePoint = CoordTransform::transformToSphere(points, masses);
         if (spherePoint.isNull()) {
-            qWarning() << "Failed to transform to sphere - invalid sphere point";
+            qWarning() << "Failed to transform to sphere";
             updatingFromTriangle = false;
             return;
         }
 
-        // Check if sphere point is valid
-        if (std::isnan(spherePoint.x()) || std::isinf(spherePoint.x()) ||
-            std::isnan(spherePoint.y()) || std::isinf(spherePoint.y()) ||
-            std::isnan(spherePoint.z()) || std::isinf(spherePoint.z())) {
-            qWarning() << "Invalid sphere point coordinates:" << spherePoint;
-            updatingFromTriangle = false;
-            return;
-        }
-
-        // Check if the change is significant enough to update
         QVector3D currentSpherePoint = sphereWidget->getPoint();
         if ((spherePoint - currentSpherePoint).length() < updateThreshold) {
-            //qDebug() << "Sphere point change is too small, skipping update";
             updatingFromTriangle = false;
             return;
         }
 
         sphereWidget->setPoint(spherePoint);
+
         lastSpherePoint = spherePoint;
+
+        if (sphereCoordsLabel) {
+            sphereCoordsLabel->setText(QString("Sphere point: (%1, %2, %3)")
+                                           .arg(spherePoint.x(), 0, 'f', 3)
+                                           .arg(spherePoint.y(), 0, 'f', 3)
+                                           .arg(spherePoint.z(), 0, 'f', 3));
+        }
     }
     catch (const std::exception& e) {
         qWarning() << "Exception in updateSpherePoint:" << e.what();
@@ -214,31 +317,40 @@ void MainWindow::updateSpherePoint() {
     }
 
     updatingFromTriangle = false;
-    //qDebug() << "UpdateSpherePoint: finished";
 }
 
-void MainWindow::handleSpherePointClicked(const QVector3D& point) {
-    if (updatingFromTriangle) {
-        //qDebug() << "HandleSpherePointClicked: updatingFromTriangle is true, skipping";
+void MainWindow::updatePointCoordinates()
+{
+    if (!scene) return;
+
+    auto points = scene->getPoints();
+    if (points.size() != 3) return;
+
+    // Форматируем текст в требуемом формате
+    QString text = QString("P1-> x: %1 y: %2\nP2-> x: %3 y: %4\nP3-> x: %5 y: %6")
+                       .arg(points[0].x(), 0, 'f', 1)
+                       .arg(points[0].y(), 0, 'f', 1)
+                       .arg(points[1].x(), 0, 'f', 1)
+                       .arg(points[1].y(), 0, 'f', 1)
+                       .arg(points[2].x(), 0, 'f', 1)
+                       .arg(points[2].y(), 0, 'f', 1);
+
+    coordsLabel->setText(text);
+}
+
+void MainWindow::handleSpherePointClicked(const QVector3D& point)
+{
+    if (updatingFromTriangle || blockSceneUpdates.load()) {
         return;
     }
 
-    //qDebug() << "HandleSpherePointClicked: blockSceneUpdates =" << blockSceneUpdates.load();
-    if (blockSceneUpdates.load()) {
-        //qDebug() << "HandleSpherePointClicked: early return";
-        return;
-    }
-
-    // Check if the change is significant enough to update
     if ((point - lastSpherePoint).length() < updateThreshold) {
-        //qDebug() << "Sphere point change is too small, skipping update";
         return;
     }
 
     updatingFromSphere = true;
 
     try {
-        // Check if sphere point is valid
         if (std::isnan(point.x()) || std::isinf(point.x()) ||
             std::isnan(point.y()) || std::isinf(point.y()) ||
             std::isnan(point.z()) || std::isinf(point.z())) {
@@ -248,7 +360,7 @@ void MainWindow::handleSpherePointClicked(const QVector3D& point) {
         }
 
         auto masses = scene->getMasses();
-        auto newPoints = CoordTransform::transformFromSphere(point, masses);
+        auto newPoints = CoordTransform::transformFromSphere(point, masses, 100.0);
 
         if (newPoints.size() != 3) {
             qWarning() << "Failed to transform from sphere - invalid points count:" << newPoints.size();
@@ -256,29 +368,20 @@ void MainWindow::handleSpherePointClicked(const QVector3D& point) {
             return;
         }
 
-        // Validate points before setting them
-        for (int i = 0; i < 3; ++i) {
-            if (std::isnan(newPoints[i].x()) || std::isinf(newPoints[i].x()) ||
-                std::isnan(newPoints[i].y()) || std::isinf(newPoints[i].y())) {
-                qWarning() << "Invalid point coordinates from sphere transformation:" << newPoints[i];
-                updatingFromSphere = false;
-                return;
-            }
-
-            // Limit point coordinates to prevent extreme values
-            if (std::abs(newPoints[i].x()) > 10000 || std::abs(newPoints[i].y()) > 10000) {
-                qWarning() << "Point coordinates out of range:" << newPoints[i];
-                updatingFromSphere = false;
-                return;
-            }
-        }
-
         blockSceneUpdates = true;
         scene->setPoints(newPoints);
         blockSceneUpdates = false;
 
-        autoScaleView();
         lastSpherePoint = point;
+
+        if (sphereCoordsLabel) {
+            sphereCoordsLabel->setText(QString("Sphere point: (%1, %2, %3)")
+                                           .arg(point.x(), 0, 'f', 3)
+                                           .arg(point.y(), 0, 'f', 3)
+                                           .arg(point.z(), 0, 'f', 3));
+        }
+
+        updatePointCoordinates();
     }
     catch (const std::exception& e) {
         qWarning() << "Exception in handleSpherePointClicked:" << e.what();
@@ -288,19 +391,76 @@ void MainWindow::handleSpherePointClicked(const QVector3D& point) {
     }
 
     updatingFromSphere = false;
-    //qDebug() << "HandleSpherePointClicked: finished";
 }
 
-void MainWindow::wheelEvent(QWheelEvent* event) {
-    if (view->underMouse()) {
-        // Zoom the triangle view
-        double zoomFactor = 1.1;
-        if (event->angleDelta().y() < 0) {
-            zoomFactor = 1.0 / zoomFactor;
+void MainWindow::onDragFinished()
+{
+    updateSpherePoint();
+    updatePointCoordinates();
+}
+
+void MainWindow::zoomIn()
+{
+    if (view) {
+        QTransform transform = view->transform();
+        double currentScale = transform.m11();
+
+        if (currentScale < 5.0) {
+            view->scale(1.2, 1.2);
         }
-        view->scale(zoomFactor, zoomFactor);
-        event->accept();
-    } else {
-        QMainWindow::wheelEvent(event);
+    }
+}
+
+void MainWindow::zoomOut()
+{
+    if (view) {
+        QTransform transform = view->transform();
+        double currentScale = transform.m11();
+
+        if (currentScale > 0.2) {
+            view->scale(1.0 / 1.2, 1.0 / 1.2);
+        }
+    }
+}
+
+void MainWindow::setMasses()
+{
+    // Получаем значения из полей ввода
+    bool ok1, ok2, ok3;
+
+    // Заменяем запятые на точки для корректного преобразования
+    QString mass1Text = mass1Edit->text().replace(',', '.');
+    QString mass2Text = mass2Edit->text().replace(',', '.');
+    QString mass3Text = mass3Edit->text().replace(',', '.');
+
+    double mass1 = mass1Text.toDouble(&ok1);
+    double mass2 = mass2Text.toDouble(&ok2);
+    double mass3 = mass3Text.toDouble(&ok3);
+
+    if (!ok1 || !ok2 || !ok3) {
+        QMessageBox::warning(this, "Invalid Input", "Please enter valid numbers for all masses.");
+        return;
+    }
+
+    if (mass1 <= 0 || mass2 <= 0 || mass3 <= 0) {
+        QMessageBox::warning(this, "Invalid Mass", "Masses must be positive numbers.");
+        return;
+    }
+
+    // Устанавливаем массы
+    QList<double> masses = {mass1, mass2, mass3};
+    scene->setMasses(masses);
+
+    // Обновляем сферу и информацию о точках
+    updateSpherePoint();
+    updatePointCoordinates();
+}
+
+void MainWindow::autoScaleView()
+{
+    if (view) {
+        view->resetTransform();
+        view->scale(1.0, 1.0);
+        view->centerOn(75, 75);
     }
 }

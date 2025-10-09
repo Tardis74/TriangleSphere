@@ -16,14 +16,13 @@ QVariant DragPoint::itemChange(GraphicsItemChange change, const QVariant &value)
     if (change == ItemPositionHasChanged) {
         QPointF newPos = value.toPointF();
 
-        // Ограничиваем максимальные координаты
-        const qreal maxCoord = 10000.0;
+        // Ограничиваем перемещение разумными пределами
+        const qreal maxCoord = 5000.0;
         if (std::abs(newPos.x()) > maxCoord || std::abs(newPos.y()) > maxCoord) {
-            // Игнорируем изменение, если координаты слишком большие
             return QGraphicsEllipseItem::itemChange(change, pos());
         }
 
-        emit positionChanged();
+        emit positionChanged(); // Немедленно отправляем сигнал об изменении
     }
     return QGraphicsEllipseItem::itemChange(change, value);
 }
@@ -35,6 +34,12 @@ void DragPoint::mouseReleaseEvent(QGraphicsSceneMouseEvent* event) {
 
 double DragPoint::mass() const {
     return m_mass;
+}
+
+void DragPoint::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
+    QGraphicsEllipseItem::mouseMoveEvent(event);
+    // Немедленно отправляем сигнал во время перемещения
+    emit positionChanging();
 }
 
 void DragPoint::setMass(double mass) {
