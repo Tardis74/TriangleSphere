@@ -155,7 +155,7 @@ MainWindow::MainWindow() :
 
         QCheckBox* animationModeCheckbox = new QCheckBox("Animation Mode");
         animationModeCheckbox->setChecked(false);
-        animationModeCheckbox->setStyleSheet("QCheckBox { font-weight: bold; color: #333; padding: 5px; }"
+        animationModeCheckbox->setStyleSheet("QCheckBox { font-weight: bold; padding: 5px; }"
                                              "QCheckBox::indicator { width: 15px; height: 15px; }"
                                              "QCheckBox::indicator:checked { background-color: #4CAF50; }");
 
@@ -191,8 +191,8 @@ MainWindow::MainWindow() :
         coordsFrame->setLineWidth(1);
         QVBoxLayout* coordsFrameLayout = new QVBoxLayout(coordsFrame);
 
-        QLabel* coordsTitle = new QLabel("Координаты точек");
-        coordsTitle->setStyleSheet("QLabel { font-weight: bold; color: black; }");
+        QLabel* coordsTitle = new QLabel("Point's coordinates");
+        coordsTitle->setStyleSheet("QLabel { font-weight: bold; }");
         coordsFrameLayout->addWidget(coordsTitle);
 
         coordsLabel = new QLabel();
@@ -209,8 +209,8 @@ MainWindow::MainWindow() :
         massFrame->setLineWidth(1);
         QVBoxLayout* massFrameLayout = new QVBoxLayout(massFrame);
 
-        QLabel* massTitle = new QLabel("Массы");
-        massTitle->setStyleSheet("QLabel { font-weight: bold; color: black; }");
+        QLabel* massTitle = new QLabel("Masses");
+        massTitle->setStyleSheet("QLabel { font-weight: bold; }");
         massFrameLayout->addWidget(massTitle);
 
         QHBoxLayout* massLayout = new QHBoxLayout;
@@ -250,8 +250,8 @@ MainWindow::MainWindow() :
         animationFrame->setLineWidth(1);
         QVBoxLayout* animationFrameLayout = new QVBoxLayout(animationFrame);
 
-        QLabel* animationTitle = new QLabel("Анимация");
-        animationTitle->setStyleSheet("QLabel { font-weight: bold; color: black; }");
+        QLabel* animationTitle = new QLabel("Animation settings");
+        animationTitle->setStyleSheet("QLabel { font-weight: bold; }");
         animationFrameLayout->addWidget(animationTitle);
 
         // Кнопки анимации
