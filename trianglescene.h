@@ -17,7 +17,7 @@ public:
     QList<QPointF> getPoints() const;
     QList<double> getMasses() const;
     void setPoints(const QList<QPointF>& points);
-    void setMasses(const QList<double>& masses); // Новый метод
+    void setMasses(const QList<double>& masses);
     QRectF itemsBoundingRect() const;
 
 signals:

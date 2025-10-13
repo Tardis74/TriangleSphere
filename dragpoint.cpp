@@ -40,6 +40,7 @@ void DragPoint::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
     QGraphicsEllipseItem::mouseMoveEvent(event);
     // Немедленно отправляем сигнал во время перемещения
     emit positionChanging();
+    emit positionChanged(); // Добавляем этот сигнал для немедленного обновления
 }
 
 void DragPoint::setMass(double mass) {

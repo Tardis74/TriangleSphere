@@ -8,11 +8,14 @@
 #include <QQuaternion>
 #include <QMouseEvent>
 #include <QWheelEvent>
-#include "dragpoint.h"
 
 class SphereWidget : public QOpenGLWidget, protected QOpenGLFunctions {
     Q_OBJECT
 public:
+    QVector<QVector3D> getEquilateralPoints() const;
+    void setDrawingEnabled(bool enabled) { m_drawingEnabled = enabled; }
+    bool isDrawingEnabled() const { return m_drawingEnabled; }
+    void breakTrajectory();
     void setMasses(const QList<double>& masses);
     explicit SphereWidget(QWidget* parent = nullptr);
     ~SphereWidget();
@@ -20,6 +23,11 @@ public:
     void setPoint(const QVector3D& point);
     QVector3D getPoint() const;
     bool isValid() const { return context() && context()->isValid(); }
+
+    // Методы для траектории
+    void setShowTrajectory(bool show);
+    void clearTrajectory();
+    void addToTrajectory(const QVector3D& point);
 
     // Новый метод для автоматического вращения к точке
     void rotateToPoint(const QVector3D& point);
@@ -61,6 +69,11 @@ private:
     bool isRotatingSphere;
     bool rotationMode = true; // true - вращение сферы, false - перемещение точки
 
+    // Переменные для траектории
+    bool m_showTrajectory;
+    QVector<QVector3D> m_trajectoryPoints;
+    QVector<QVector3D> m_trajectoryColors; // для градиента цвета
+
     void setupLighting();
     void drawSphere();
     void drawCoordinateSystem();
@@ -69,8 +82,12 @@ private:
     void drawCollisionPoints();
     void drawPoles();
     void drawEquilateralPoints();
+    void drawTrajectory(); // метод для рисования траектории
     QVector3D getSpherePointFromMouse(const QPoint& mousePos) const;
     QVector3D projectToScreen(const QVector3D& point) const;
+    QVector<QVector<QVector3D>> m_trajectorySegments;
+    QVector<QVector<QVector3D>> m_trajectorySegmentColors;
+    bool m_drawingEnabled = true;
 };
 
 #endif // SPHEREWIDGET_H

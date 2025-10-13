@@ -10,11 +10,119 @@
 #include <QMessageBox>
 #include <QDoubleValidator>
 #include <QFrame>
+#include <QGroupBox>
+#include <QCheckBox>
+#include <cmath>
+#include <QRegularExpression>
 #include "coordtransform.h"
+#include "functioninputdialog.h"
+
+// Простой математический парсер
+namespace MathParser {
+double parseExpression(const QString& expr);
+double evaluateExpression(const QString& expr);
+
+double evaluate(const QString& expression, double t) {
+    if (expression.isEmpty()) return 0.0;
+
+    QString expr = expression;
+    expr = expr.replace("t", QString::number(t, 'f', 6));
+    expr = expr.replace("pi", "3.14159265358979323846");
+    expr = expr.replace("e", "2.71828182845904523536");
+
+    // Добавляем поддержку математических констант из ваших уравнений
+    expr = expr.replace("0.8660254", "0.8660254037844386"); // sqrt(3)/2
+
+    // Упрощённая замена функций
+    expr = expr.replace("sin", "s");
+    expr = expr.replace("cos", "c");
+    expr = expr.replace("tan", "t");
+    expr = expr.replace("exp", "e");
+    expr = expr.replace("log", "l");
+    expr = expr.replace("sqrt", "q");
+
+    // Удаляем пробелы
+    expr = expr.remove(" ");
+
+    return evaluateExpression(expr);
+}
+
+double evaluateExpression(const QString& expr) {
+    try {
+        return parseExpression(expr);
+    } catch (const std::exception&) {
+        return 0.0;
+    }
+}
+
+double parseExpression(const QString& expr) {
+    int len = expr.length();
+    if (len == 0) return 0.0;
+
+    // Обработка скобок
+    if (expr[0] == '(' && expr[len-1] == ')') {
+        return parseExpression(expr.mid(1, len-2));
+    }
+
+    // Поиск операторов с низким приоритетом (+, -)
+    int parenCount = 0;
+    for (int i = len-1; i >= 0; --i) {
+        QChar c = expr[i];
+        if (c == ')') parenCount++;
+        else if (c == '(') parenCount--;
+
+        if (parenCount == 0 && (c == '+' || c == '-') && i > 0) {
+            double left = parseExpression(expr.left(i));
+            double right = parseExpression(expr.mid(i+1));
+            return (c == '+') ? left + right : left - right;
+        }
+    }
+
+    // Поиск операторов (*, /)
+    parenCount = 0;
+    for (int i = len-1; i >= 0; --i) {
+        QChar c = expr[i];
+        if (c == ')') parenCount++;
+        else if (c == '(') parenCount--;
+
+        if (parenCount == 0 && (c == '*' || c == '/') && i > 0) {
+            double left = parseExpression(expr.left(i));
+            double right = parseExpression(expr.mid(i+1));
+            if (c == '/' && right == 0.0) return 0.0; // Защита от деления на ноль
+            return (c == '*') ? left * right : left / right;
+        }
+    }
+
+    // Обработка функций
+    if (expr.length() > 1 && (expr[0] == 's' || expr[0] == 'c' || expr[0] == 't' ||
+                              expr[0] == 'e' || expr[0] == 'l' || expr[0] == 'q')) {
+        double arg = parseExpression(expr.mid(1));
+        switch (expr[0].toLatin1()) {
+        case 's': return std::sin(arg); // sin
+        case 'c': return std::cos(arg); // cos
+        case 't': return std::tan(arg); // tan
+        case 'e': return std::exp(arg); // exp
+        case 'l': return std::log(arg); // log
+        case 'q': return std::sqrt(arg); // sqrt
+        }
+    }
+
+    // Числа
+    bool ok;
+    double result = expr.toDouble(&ok);
+    if (ok) return result;
+
+    return 0.0;
+}
+}
 
 MainWindow::MainWindow() :
     blockSceneUpdates(false),
-    lastSpherePoint(0, 0, 0)
+    lastSpherePoint(0, 0, 0),
+    isAnimationMode(false),
+    currentTime(0.0),
+    timeStep(0.1),
+    maxTime(10.0)
 {
     qDebug() << "MainWindow constructor started";
 
@@ -36,6 +144,31 @@ MainWindow::MainWindow() :
         infoLabel->setStyleSheet("QLabel { color: #666; padding: 8px; background-color: #f8f8f8; border: 1px solid #ddd; }");
         infoLabel->setWordWrap(true);
         leftLayout->addWidget(infoLabel);
+
+        // В конструкторе MainWindow заменяем существующий код для чекбокса:
+        QHBoxLayout* modeSwitchLayout = new QHBoxLayout;
+
+        // Создаем контейнер для чекбокса и подписи
+        QWidget* animationModeContainer = new QWidget;
+        QHBoxLayout* containerLayout = new QHBoxLayout(animationModeContainer);
+        containerLayout->setContentsMargins(0, 0, 0, 0);
+
+        QCheckBox* animationModeCheckbox = new QCheckBox("Animation Mode");
+        animationModeCheckbox->setChecked(false);
+        animationModeCheckbox->setStyleSheet("QCheckBox { font-weight: bold; color: #333; padding: 5px; }"
+                                             "QCheckBox::indicator { width: 15px; height: 15px; }"
+                                             "QCheckBox::indicator:checked { background-color: #4CAF50; }");
+
+        // Добавляем подпись
+        QLabel* animationModeLabel = new QLabel("(включите для задания движения точек по функциям)");
+        animationModeLabel->setStyleSheet("QLabel { color: #666; font-style: italic; }");
+
+        containerLayout->addWidget(animationModeCheckbox);
+        containerLayout->addWidget(animationModeLabel);
+        containerLayout->addStretch();
+
+        modeSwitchLayout->addWidget(animationModeContainer);
+        leftLayout->addLayout(modeSwitchLayout);
 
         // Создаем graphics view и scene
         view = new QGraphicsView;
@@ -111,6 +244,118 @@ MainWindow::MainWindow() :
         massFrameLayout->addLayout(massLayout);
         leftLayout->addWidget(massFrame);
 
+        // Панель анимации
+        QFrame* animationFrame = new QFrame;
+        animationFrame->setFrameStyle(QFrame::Box);
+        animationFrame->setLineWidth(1);
+        QVBoxLayout* animationFrameLayout = new QVBoxLayout(animationFrame);
+
+        QLabel* animationTitle = new QLabel("Анимация");
+        animationTitle->setStyleSheet("QLabel { font-weight: bold; color: black; }");
+        animationFrameLayout->addWidget(animationTitle);
+
+        // Кнопки анимации
+        QHBoxLayout* animationButtonLayout = new QHBoxLayout;
+        animationModeButton = new QPushButton("Set Functions");
+        animationModeButton->setFixedHeight(35);
+        animationModeButton->setStyleSheet("QPushButton { padding: 8px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+        animationModeButton->setEnabled(false); // Изначально выключена
+
+        animationStartButton = new QPushButton("Start");
+        animationStartButton->setFixedHeight(35);
+        animationStartButton->setStyleSheet("QPushButton { padding: 8px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+        animationStartButton->setEnabled(false);
+
+        animationPauseButton = new QPushButton("Pause");
+        animationPauseButton->setFixedHeight(35);
+        animationPauseButton->setStyleSheet("QPushButton { padding: 8px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+        animationPauseButton->setEnabled(false);
+
+        animationResetButton = new QPushButton("Reset");
+        animationResetButton->setFixedHeight(35);
+        animationResetButton->setStyleSheet("QPushButton { padding: 8px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+        animationResetButton->setEnabled(false);
+
+        animationButtonLayout->addWidget(animationModeButton);
+        animationButtonLayout->addWidget(animationStartButton);
+        animationButtonLayout->addWidget(animationPauseButton);
+        animationButtonLayout->addWidget(animationResetButton);
+        animationButtonLayout->addStretch();
+
+        animationFrameLayout->addLayout(animationButtonLayout);
+
+        // Параметры анимации
+        QHBoxLayout* animationParamsLayout = new QHBoxLayout;
+
+        QLabel* maxTimeLabel = new QLabel("Max Time:");
+        maxTimeEdit = new QLineEdit("20.0");
+        // Используем QDoubleValidator с локалью C (всегда использует точку)
+        QDoubleValidator* maxTimeValidator = new QDoubleValidator(1.0, 1000.0, 3, this);
+        maxTimeValidator->setLocale(QLocale::C); // Принудительно используем точку как разделитель
+        maxTimeEdit->setValidator(maxTimeValidator);
+        maxTimeEdit->setMaximumWidth(60);
+        maxTimeEdit->setEnabled(true);
+
+        QLabel* speedLabel = new QLabel("Speed:");
+        speedEdit = new QLineEdit("1.0");
+        QDoubleValidator* speedValidator = new QDoubleValidator(0.01, 100.0, 3, this);
+        speedValidator->setLocale(QLocale::C); // Принудительно используем точку как разделитель
+        speedEdit->setValidator(speedValidator);
+        speedEdit->setMaximumWidth(60);
+        speedEdit->setEnabled(true);
+
+        showTrajectoryCheckbox = new QCheckBox("Show Trajectory");
+        showTrajectoryCheckbox->setEnabled(true);
+
+        animationParamsLayout->addWidget(maxTimeLabel);
+        animationParamsLayout->addWidget(maxTimeEdit);
+        animationParamsLayout->addWidget(speedLabel);
+        animationParamsLayout->addWidget(speedEdit);
+        animationParamsLayout->addWidget(showTrajectoryCheckbox);
+        animationParamsLayout->addStretch();
+
+        animationFrameLayout->addLayout(animationParamsLayout);
+
+        // Слайдер времени
+        QHBoxLayout* timeLayout = new QHBoxLayout;
+        timeLayout->addWidget(new QLabel("Time:"));
+
+        timeSlider = new QSlider(Qt::Horizontal);
+        timeSlider->setRange(0, 100);
+        timeSlider->setValue(0);
+        timeSlider->setEnabled(false);
+        timeLayout->addWidget(timeSlider);
+
+        timeLabel = new QLabel("t = 0.00");
+        timeLabel->setStyleSheet("QLabel { font-family: monospace; }");
+        timeLabel->setMinimumWidth(60);
+        timeLayout->addWidget(timeLabel);
+
+        animationFrameLayout->addLayout(timeLayout);
+        leftLayout->addWidget(animationFrame);
+
+        QPushButton* stopDrawingButton = new QPushButton("Stop Drawing");
+        stopDrawingButton->setFixedHeight(35);
+        stopDrawingButton->setStyleSheet("QPushButton { padding: 8px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
+
+        // Добавьте эту кнопку в animationButtonLayout:
+        animationButtonLayout->addWidget(stopDrawingButton);
+
+        // Подключите кнопку:
+        connect(stopDrawingButton, &QPushButton::clicked, this, [this, stopDrawingButton]() {
+            bool drawingEnabled = sphereWidget->isDrawingEnabled();
+            sphereWidget->setDrawingEnabled(!drawingEnabled);
+
+            if (drawingEnabled) {
+                stopDrawingButton->setText("Resume Drawing");
+            } else {
+                stopDrawingButton->setText("Stop Drawing");
+            }
+        });
+
+        connect(maxTimeEdit, &QLineEdit::editingFinished, this, &MainWindow::fixMaxTimeInput);
+        connect(speedEdit, &QLineEdit::editingFinished, this, &MainWindow::fixSpeedInput);
+
         // Создаем панель управления с кнопками масштабирования
         QHBoxLayout* controlLayout = new QHBoxLayout;
 
@@ -126,12 +371,12 @@ MainWindow::MainWindow() :
 
         // Кнопка сброса
         resetButton = new QPushButton("Reset View");
-        resetButton->setFixedHeight(35); // Устанавливаем такую же высоту, как у других кнопок
+        resetButton->setFixedHeight(35);
         resetButton->setStyleSheet("QPushButton { padding: 8px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
 
-        // Кнопка переключения режимов сферы - одинакового размера с resetButton
+        // Кнопка переключения режимов сферы
         toggleModeButton = new QPushButton("Switch to Point Move");
-        toggleModeButton->setFixedHeight(35); // Такая же высота, как у resetButton
+        toggleModeButton->setFixedHeight(35);
         toggleModeButton->setStyleSheet("QPushButton { padding: 8px; background-color: #e0e0e0; color: black; border: 1px solid #aaa; }");
 
         // Добавляем кнопки в layout
@@ -160,14 +405,19 @@ MainWindow::MainWindow() :
         mainSplitter->setStretchFactor(1, 6);
 
         setCentralWidget(mainSplitter);
-        setWindowTitle("Triangle-Sphere Projection System");
+        setWindowTitle("Triangle-Sphere Projection System with Animation");
         resize(1200, 700);
+
+        // Создаем таймер анимации
+        animationTimer = new QTimer(this);
+        animationTimer->setInterval(50); // 20 FPS
 
         // Подключаем сигналы и слоты
         connect(scene, &TriangleScene::dragFinished, this, &MainWindow::onDragFinished);
         connect(scene, &TriangleScene::triangleUpdated, this, &MainWindow::updatePointCoordinates);
+        connect(scene, &TriangleScene::pointPositionChanging, this, &MainWindow::updateSpherePoint); // НОВОЕ
         connect(sphereWidget, &SphereWidget::spherePointClicked, this, &MainWindow::handleSpherePointClicked);
-        connect(scene, &TriangleScene::pointPositionChanging, this, &MainWindow::updateSpherePoint);
+        connect(scene, &TriangleScene::triangleUpdated, this, &MainWindow::updateSpherePoint);
 
         // Подключаем сигналы для изменения курсора
         connect(scene, &TriangleScene::sceneDragStarted, this, [this]() {
@@ -188,7 +438,7 @@ MainWindow::MainWindow() :
         // Подключаем кнопку установки масс
         connect(setMassesButton, &QPushButton::clicked, this, &MainWindow::setMasses);
 
-        // Подключаем кнопку переключения режимов
+        // Подключаем кнопку переключения режимов сферы
         connect(toggleModeButton, &QPushButton::clicked, this, [this]() {
             bool currentMode = sphereWidget->getRotationMode();
             sphereWidget->setRotationMode(!currentMode);
@@ -199,6 +449,55 @@ MainWindow::MainWindow() :
             } else {
                 toggleModeButton->setText("Switch to Sphere Rotate");
                 if (view) view->setCursor(Qt::PointingHandCursor);
+            }
+        });
+
+        // Подключаем анимацию
+        connect(animationModeButton, &QPushButton::clicked, this, &MainWindow::onAnimationModeClicked);
+        connect(animationStartButton, &QPushButton::clicked, this, &MainWindow::onAnimationStart);
+        connect(animationPauseButton, &QPushButton::clicked, this, &MainWindow::onAnimationPause);
+        connect(animationResetButton, &QPushButton::clicked, this, &MainWindow::onAnimationReset);
+        connect(timeSlider, &QSlider::valueChanged, this, &MainWindow::onTimeSliderChanged);
+        connect(animationTimer, &QTimer::timeout, this, &MainWindow::updateAnimation);
+
+        // Подключаем чекбокс траектории к sphereWidget
+        connect(showTrajectoryCheckbox, &QCheckBox::toggled, sphereWidget, &SphereWidget::setShowTrajectory);
+
+        // ПОДКЛЮЧАЕМ ЧЕКБОКС ANIMATION MODE
+        connect(animationModeCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
+            isAnimationMode = checked;
+
+            // Включаем/выключаем элементы управления анимацией
+            animationModeButton->setEnabled(checked);
+            animationStartButton->setEnabled(checked);
+            animationResetButton->setEnabled(checked);
+            timeSlider->setEnabled(checked);
+
+            // ВКЛЮЧАЕМ ПОЛЯ ВВОДА ДАЖЕ В РЕЖИМЕ АНИМАЦИИ
+            maxTimeEdit->setEnabled(true);  // Всегда доступно
+            speedEdit->setEnabled(true);    // Всегда доступно
+
+            showTrajectoryCheckbox->setEnabled(true);
+
+            if (checked) {
+                // Включаем режим анимации
+                if (x1Func.isEmpty()) {
+                    // Если функции не установлены, устанавливаем значения по умолчанию
+                    x1Func = "50 + 20*cos(t)";
+                    y1Func = "50 + 20*sin(t)";
+                    x2Func = "100 + 15*cos(2*t)";
+                    y2Func = "50 + 15*sin(2*t)";
+                    x3Func = "75 + 25*cos(0.5*t)";
+                    y3Func = "100 + 25*sin(0.5*t)";
+                }
+                currentTime = 0.0;
+                timeSlider->setValue(0);
+                evaluateFunctions(currentTime);
+            } else {
+                // Выключаем режим анимации
+                animationTimer->stop();
+                animationStartButton->setEnabled(false);
+                animationPauseButton->setEnabled(false);
             }
         });
 
@@ -257,67 +556,38 @@ MainWindow::~MainWindow()
 
 void MainWindow::updateSpherePoint()
 {
-    if (updatingFromSphere) {
-        return;
-    }
-
-    if (!sphereWidget || !scene) {
+    if (updatingFromSphere || blockSceneUpdates.load() || !sphereWidget || !scene) {
         return;
     }
 
     updatingFromTriangle = true;
 
     try {
-        if (!sphereWidget->isValid()) {
-            qWarning() << "OpenGL context is not valid";
-            updatingFromTriangle = false;
-            return;
-        }
-
         auto points = scene->getPoints();
         auto masses = scene->getMasses();
 
-        if (points.size() != 3 || masses.size() != 3) {
-            qWarning() << "Invalid points or masses count";
-            updatingFromTriangle = false;
-            return;
-        }
+        if (points.size() == 3 && masses.size() == 3) {
+            QVector3D spherePoint = CoordTransform::transformToSphere(points, masses);
+            if (!spherePoint.isNull()) {
+                sphereWidget->setPoint(spherePoint);
+                lastSpherePoint = spherePoint;
 
-        sphereWidget->setMasses(masses);
-
-        QVector3D spherePoint = CoordTransform::transformToSphere(points, masses);
-        if (spherePoint.isNull()) {
-            qWarning() << "Failed to transform to sphere";
-            updatingFromTriangle = false;
-            return;
-        }
-
-        QVector3D currentSpherePoint = sphereWidget->getPoint();
-        if ((spherePoint - currentSpherePoint).length() < updateThreshold) {
-            updatingFromTriangle = false;
-            return;
-        }
-
-        sphereWidget->setPoint(spherePoint);
-
-        lastSpherePoint = spherePoint;
-
-        if (sphereCoordsLabel) {
-            sphereCoordsLabel->setText(QString("Sphere point: (%1, %2, %3)")
-                                           .arg(spherePoint.x(), 0, 'f', 3)
-                                           .arg(spherePoint.y(), 0, 'f', 3)
-                                           .arg(spherePoint.z(), 0, 'f', 3));
+                if (sphereCoordsLabel) {
+                    sphereCoordsLabel->setText(QString("Sphere point: (%1, %2, %3)")
+                                                   .arg(spherePoint.x(), 0, 'f', 3)
+                                                   .arg(spherePoint.y(), 0, 'f', 3)
+                                                   .arg(spherePoint.z(), 0, 'f', 3));
+                }
+            }
         }
     }
     catch (const std::exception& e) {
         qWarning() << "Exception in updateSpherePoint:" << e.what();
     }
-    catch (...) {
-        qWarning() << "Unknown exception in updateSpherePoint";
-    }
 
     updatingFromTriangle = false;
 }
+
 
 void MainWindow::updatePointCoordinates()
 {
@@ -463,4 +733,183 @@ void MainWindow::autoScaleView()
         view->scale(1.0, 1.0);
         view->centerOn(75, 75);
     }
+}
+
+void MainWindow::onAnimationModeClicked()
+{
+    FunctionInputDialog dialog;
+    QStringList currentFunctions = {x1Func, y1Func, x2Func, y2Func, x3Func, y3Func};
+    if (!currentFunctions[0].isEmpty()) {
+        dialog.setFunctions(currentFunctions);
+    }
+
+    if (dialog.exec() == QDialog::Accepted) {
+        x1Func = dialog.getX1();
+        y1Func = dialog.getY1();
+        x2Func = dialog.getX2();
+        y2Func = dialog.getY2();
+        x3Func = dialog.getX3();
+        y3Func = dialog.getY3();
+
+        animationStartButton->setEnabled(true);
+        animationResetButton->setEnabled(true);
+        timeSlider->setEnabled(true);
+
+        // Сбрасываем время и вычисляем начальное положение
+        currentTime = 0.0;
+        timeSlider->setValue(0);
+        evaluateFunctions(currentTime);
+
+        QMessageBox::information(this, "Animation Mode",
+                                 "Functions set! Use the time slider or Start button to begin animation.");
+    }
+}
+
+void MainWindow::onAnimationStart()
+{
+    animationTimer->start();
+    animationStartButton->setEnabled(false);
+    animationPauseButton->setEnabled(true);
+}
+
+void MainWindow::onAnimationPause()
+{
+    animationTimer->stop();
+    animationStartButton->setEnabled(true);
+    animationPauseButton->setEnabled(false);
+}
+
+void MainWindow::onAnimationReset()
+{
+    animationTimer->stop();
+    currentTime = 0.0;
+    timeSlider->setValue(0);
+    evaluateFunctions(currentTime);
+    animationStartButton->setEnabled(true);
+    animationPauseButton->setEnabled(false);
+
+    // Очищаем траекторию при сбросе
+    sphereWidget->clearTrajectory();
+}
+
+void MainWindow::onTimeSliderChanged(int value)
+{
+    maxTime = maxTimeEdit->text().toDouble();
+    currentTime = (value / 100.0) * maxTime;
+    evaluateFunctions(currentTime);
+    updateTimeLabel();
+}
+
+void MainWindow::updateAnimation()
+{
+    maxTime = maxTimeEdit->text().toDouble();
+    double speedFactor = speedEdit->text().toDouble();
+
+    double previousTime = currentTime;
+    currentTime += timeStep * speedFactor;
+
+    // Если время перескочило с максимума на минимум, разрываем траекторию
+    if (previousTime > maxTime * 0.9 && currentTime < maxTime * 0.1) {
+        sphereWidget->breakTrajectory();
+    }
+
+    if (currentTime > maxTime) {
+        currentTime = 0.0;
+    }
+
+    int sliderValue = static_cast<int>((currentTime / maxTime) * 100);
+    timeSlider->setValue(sliderValue);
+
+    evaluateFunctions(currentTime);
+    updateTimeLabel();
+}
+
+void MainWindow::updateTimeLabel()
+{
+    timeLabel->setText(QString("t = %1").arg(currentTime, 0, 'f', 2));
+}
+
+double MainWindow::evaluateExpression(const QString& expression, double t) {
+    if (expression.isEmpty()) return 0.0;
+
+    try {
+        return MathParser::evaluate(expression, t);
+    } catch (const std::exception& e) {
+        qWarning() << "Expression evaluation error:" << expression << "->" << e.what();
+        return 0.0;
+    }
+}
+
+void MainWindow::evaluateFunctions(double t)
+{
+    if (!isAnimationMode) return;
+
+    double x1 = evaluateExpression(x1Func, t);
+    double y1 = evaluateExpression(y1Func, t);
+    double x2 = evaluateExpression(x2Func, t);
+    double y2 = evaluateExpression(y2Func, t);
+    double x3 = evaluateExpression(x3Func, t);
+    double y3 = evaluateExpression(y3Func, t);
+
+    QList<QPointF> points = {
+        QPointF(x1, y1),
+        QPointF(x2, y2),
+        QPointF(x3, y3)
+    };
+
+    blockSceneUpdates = true;
+    scene->setPoints(points);
+    blockSceneUpdates = false;
+
+    // ВЫЧИСЛЯЕМ ТОЧКУ НА СФЕРЕ И ДОБАВЛЯЕМ В ТРАЕКТОРИЮ
+    auto masses = scene->getMasses();
+    QVector3D spherePoint = CoordTransform::transformToSphere(points, masses);
+
+    if (!spherePoint.isNull()) {
+        // Обновляем точку на сфере
+        sphereWidget->setPoint(spherePoint);
+
+        // Добавляем в траекторию если включено отображение
+        if (showTrajectoryCheckbox->isChecked()) {
+            sphereWidget->addToTrajectory(spherePoint);
+        }
+
+        // Обновляем label
+        if (sphereCoordsLabel) {
+            sphereCoordsLabel->setText(QString("Sphere point: (%1, %2, %3)")
+                                           .arg(spherePoint.x(), 0, 'f', 3)
+                                           .arg(spherePoint.y(), 0, 'f', 3)
+                                           .arg(spherePoint.z(), 0, 'f', 3));
+        }
+    }
+
+    updatePointCoordinates();
+}
+
+void MainWindow::fixMaxTimeInput()
+{
+    QString text = maxTimeEdit->text();
+    // Заменяем запятые на точки
+    text = text.replace(',', '.');
+    // Удаляем лишние точки
+    int dotCount = text.count('.');
+    if (dotCount > 1) {
+        int firstDot = text.indexOf('.');
+        text = text.left(firstDot + 1) + text.mid(firstDot + 1).remove('.');
+    }
+    maxTimeEdit->setText(text);
+}
+
+void MainWindow::fixSpeedInput()
+{
+    QString text = speedEdit->text();
+    // Заменяем запятые на точки
+    text = text.replace(',', '.');
+    // Удаляем лишние точки
+    int dotCount = text.count('.');
+    if (dotCount > 1) {
+        int firstDot = text.indexOf('.');
+        text = text.left(firstDot + 1) + text.mid(firstDot + 1).remove('.');
+    }
+    speedEdit->setText(text);
 }

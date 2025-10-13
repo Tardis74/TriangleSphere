@@ -10,8 +10,11 @@
 
 SphereWidget::SphereWidget(QWidget* parent)
     : QOpenGLWidget(parent), spherePoint(0, 0, 1), rotation(1, 0, 0, 0), m_masses({1.0, 1.0, 1.0}),
-    distance(5.0f), isDraggingPoint(false), isRotatingSphere(false) {
-
+    distance(5.0f), isDraggingPoint(false), isRotatingSphere(false),
+    m_showTrajectory(false)
+{
+    m_trajectorySegments.append(QVector<QVector3D>());
+    m_trajectorySegmentColors.append(QVector<QVector3D>());
     setMinimumSize(400, 400);
     setFocusPolicy(Qt::StrongFocus);
 
@@ -80,7 +83,7 @@ void SphereWidget::setupLighting() {
     glEnable(GL_COLOR_MATERIAL);
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
 
-    // Позиция света (правее и выше наблюдателя)
+    // Позиция света (правеer и выше наблюдателя)
     GLfloat lightPosition[] = {1.0f, 1.0f, 0.0f, 1.0f};
     glLightfv(GL_LIGHT0, GL_POSITION, lightPosition);
 
@@ -120,13 +123,18 @@ void SphereWidget::paintGL() {
     glMatrixMode(GL_MODELVIEW);
     glLoadMatrixf(modelView.constData());
 
-    // Сначала рисуем непрозрачные элементы (линии, точки)
+    // Сначала рисуем непрозрачные элементы
     glDisable(GL_LIGHTING);
     drawSpecialLines();
     drawCollisionPoints();
     drawEquilateralPoints();
     drawPoles();
     drawCoordinateSystem();
+
+    // РИСУЕМ ТРАЕКТОРИЮ ДО ТОЧКИ (чтобы она была под точкой)
+    drawTrajectory();
+
+    // Затем рисуем точку
     drawPoint();
     glEnable(GL_LIGHTING);
 
@@ -160,7 +168,6 @@ void SphereWidget::mousePressEvent(QMouseEvent* event) {
         }
     }
 }
-
 
 void SphereWidget::mouseMoveEvent(QMouseEvent* event) {
     if (rotationMode) {
@@ -342,47 +349,47 @@ void SphereWidget::drawCoordinateSystem() {
     glLineWidth(2.0f);
 }
 
-void SphereWidget::drawPoint() {
+void SphereWidget::drawPoint()
+{
     if (spherePoint.isNull()) return;
 
-    if (rotationMode) {
-        // В режиме вращения - рисуем точку меньшего размера и другим цветом
-        glColor3f(0.5f, 0.5f, 0.5f); // Серый цвет
-        glPointSize(6.0f);
-        glBegin(GL_POINTS);
-        glVertex3f(spherePoint.x(), spherePoint.y(), spherePoint.z());
-        glEnd();
-    } else {
-        // В режиме перемещения точки - рисуем точку большего размера и ярким цветом
-        glColor3f(1.0f, 0.0f, 0.0f); // Красный цвет
-        glPointSize(10.0f);
-        glBegin(GL_POINTS);
-        glVertex3f(spherePoint.x(), spherePoint.y(), spherePoint.z());
-        glEnd();
+    // Сохраняем текущие настройки освещения
+    GLboolean lightingWasEnabled = glIsEnabled(GL_LIGHTING);
+    glDisable(GL_LIGHTING);
 
-        // Рисуем контур вокруг точки для лучшей видимости
-        glColor3f(1.0f, 1.0f, 1.0f);
-        glPointSize(12.0f);
-        glEnable(GL_POINT_SMOOTH);
-        glBegin(GL_POINTS);
-        glVertex3f(spherePoint.x(), spherePoint.y(), spherePoint.z());
-        glEnd();
-        glDisable(GL_POINT_SMOOTH);
-    }
+    // Ярко-красная точка - стандартный размер
+    glColor3f(1.0f, 0.0f, 0.0f);
+    glPointSize(10.0f);
+    glBegin(GL_POINTS);
+    glVertex3f(spherePoint.x(), spherePoint.y(), spherePoint.z());
+    glEnd();
 
-    // Draw a line from center to point (только в режиме перемещения)
-    if (!rotationMode) {
-        glColor3f(1.0f, 0.5f, 0.5f);
-        glLineWidth(2.0f);
-        glBegin(GL_LINES);
-        glVertex3f(0, 0, 0);
-        glVertex3f(spherePoint.x(), spherePoint.y(), spherePoint.z());
-        glEnd();
-        glLineWidth(1.0f);
+    // Белый контур для лучшей видимости
+    glColor3f(1.0f, 1.0f, 1.0f);
+    glPointSize(12.0f);
+    glEnable(GL_POINT_SMOOTH);
+    glBegin(GL_POINTS);
+    glVertex3f(spherePoint.x(), spherePoint.y(), spherePoint.z());
+    glEnd();
+    glDisable(GL_POINT_SMOOTH);
+
+    // Линия от центра к точке
+    glColor3f(1.0f, 0.7f, 0.7f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINES);
+    glVertex3f(0, 0, 0);
+    glVertex3f(spherePoint.x(), spherePoint.y(), spherePoint.z());
+    glEnd();
+
+    // Восстанавливаем настройки
+    if (lightingWasEnabled) {
+        glEnable(GL_LIGHTING);
     }
 }
 
-void SphereWidget::drawEquilateralPoints() {
+
+void SphereWidget::drawEquilateralPoints()
+{
     if (m_masses.size() != 3) return;
 
     double m1 = m_masses[0];
@@ -407,6 +414,9 @@ void SphereWidget::drawEquilateralPoints() {
     double xi3_pos = std::sqrt(mu1 * mu2) * std::sqrt(3.0);
     double xi3_neg = -xi3_pos;
 
+    // Отключаем освещение для точек
+    glDisable(GL_LIGHTING);
+
     // Нормализуем для положительного решения
     double norm_pos = std::sqrt(xi1*xi1 + xi2*xi2 + xi3_pos*xi3_pos);
     if (norm_pos > 1e-10) {
@@ -414,11 +424,21 @@ void SphereWidget::drawEquilateralPoints() {
         double y = xi3_pos / norm_pos;
         double z = xi1 / norm_pos;
 
-        glColor3f(1.0f, 1.0f, 0.0f); // Желтый цвет
-        glPointSize(12.0f);
+        // Ярко-желтая точка - тот же размер, что и основная точка
+        glColor3f(1.0f, 1.0f, 0.0f);
+        glPointSize(10.0f);
         glBegin(GL_POINTS);
         glVertex3f(x, y, z);
         glEnd();
+
+        // Белый контур
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glPointSize(12.0f);
+        glEnable(GL_POINT_SMOOTH);
+        glBegin(GL_POINTS);
+        glVertex3f(x, y, z);
+        glEnd();
+        glDisable(GL_POINT_SMOOTH);
     }
 
     // Нормализуем для отрицательного решения
@@ -428,13 +448,25 @@ void SphereWidget::drawEquilateralPoints() {
         double y = xi3_neg / norm_neg;
         double z = xi1 / norm_neg;
 
-        glColor3f(1.0f, 1.0f, 0.0f); // Желтый цвет
-        glPointSize(12.0f);
+        // Ярко-желтая точка - тот же размер, что и основная точка
+        glColor3f(1.0f, 1.0f, 0.0f);
+        glPointSize(10.0f);
         glBegin(GL_POINTS);
         glVertex3f(x, y, z);
         glEnd();
+
+        // Белый контур
+        glColor3f(1.0f, 1.0f, 1.0f);
+        glPointSize(12.0f);
+        glEnable(GL_POINT_SMOOTH);
+        glBegin(GL_POINTS);
+        glVertex3f(x, y, z);
+        glEnd();
+        glDisable(GL_POINT_SMOOTH);
     }
-    glPointSize(1.0f);
+
+    // Включаем освещение обратно
+    glEnable(GL_LIGHTING);
 }
 
 void SphereWidget::drawSpecialLines() {
@@ -510,7 +542,7 @@ void SphereWidget::drawSpecialLines() {
     glEnd();
 
     // Condition 3: Right angle at vertex r3 (xi2^2 + xi3^2 = k^2*(1+xi1)^2)
-    glColor3f(1.0f, 1.0f, 1.0f);
+    glColor3f(0.0f, 1.0f, 1.0f);
     glBegin(GL_LINE_LOOP);
     for (int i = 0; i <= resolution; i++) {
         double theta = 2.0 * M_PI * i / resolution;
@@ -576,4 +608,84 @@ void SphereWidget::drawPoles() {
     glVertex3f(0.0f, -1.0f, 0.0f);  // Южный полюс
     glEnd();
     glPointSize(1.0f);
+}
+
+void SphereWidget::setShowTrajectory(bool show)
+{
+    m_showTrajectory = show;
+    update();
+}
+
+void SphereWidget::clearTrajectory()
+{
+    m_trajectorySegments.clear();
+    m_trajectorySegmentColors.clear();
+    // Создаем первый пустой сегмент
+    m_trajectorySegments.append(QVector<QVector3D>());
+    m_trajectorySegmentColors.append(QVector<QVector3D>());
+    update();
+}
+
+void SphereWidget::addToTrajectory(const QVector3D& point)
+{
+    if (!m_drawingEnabled) return;
+
+    if (m_trajectorySegments.isEmpty()) {
+        m_trajectorySegments.append(QVector<QVector3D>());
+        m_trajectorySegmentColors.append(QVector<QVector3D>());
+    }
+
+    m_trajectorySegments.last().append(point);
+
+    // Яркий бирюзовый цвет для траектории (лучшая видимость)
+    float t = static_cast<float>(m_trajectorySegments.last().size()) / 1000.0f;
+    QVector3D color(0.0f, 0.8f + 0.2f * t, 1.0f - 0.5f * t); // От бирюзового к синему
+    m_trajectorySegmentColors.last().append(color);
+
+    // Ограничиваем длину каждого сегмента для производительности
+    if (m_trajectorySegments.last().size() > 1000) {
+        m_trajectorySegments.last().removeFirst();
+        m_trajectorySegmentColors.last().removeFirst();
+    }
+
+    update();
+}
+
+void SphereWidget::drawTrajectory()
+{
+    if (!m_showTrajectory || m_trajectorySegments.isEmpty()) {
+        return;
+    }
+
+    glDisable(GL_LIGHTING);
+
+    // Увеличим толщину линии траектории для лучшей видимости
+    glLineWidth(4.0f);
+
+    // Рисуем каждый сегмент отдельно
+    for (int seg = 0; seg < m_trajectorySegments.size(); ++seg) {
+        const auto& segment = m_trajectorySegments[seg];
+
+        if (segment.size() < 2) continue;
+
+        glBegin(GL_LINE_STRIP);
+        for (int i = 0; i < segment.size(); ++i) {
+            // Используем градиент цвета
+            glColor3f(1.0f, 0.0f, 0.0f);
+            glVertex3f(segment[i].x(), segment[i].y(), segment[i].z());
+        }
+        glEnd();
+    }
+
+    glLineWidth(1.0f);
+    glEnable(GL_LIGHTING);
+}
+
+void SphereWidget::breakTrajectory()
+{
+    // Создаем новый сегмент траектории
+    if (!m_trajectorySegments.isEmpty() && !m_trajectorySegments.last().isEmpty()) {
+        m_trajectorySegments.append(QVector<QVector3D>());
+        m_trajectorySegmentColors.append(QVector<QVector3D>());
+    }
 }

@@ -30,7 +30,11 @@ TriangleScene::TriangleScene(QObject* parent) : QGraphicsScene(parent)
             if (point) {
                 addItem(point);
                 connect(point, &DragPoint::positionChanged, this, &TriangleScene::updateTriangle);
-                connect(point, &DragPoint::positionChanging, this, &TriangleScene::updateTriangle);
+                connect(point, &DragPoint::positionChanging, this, [this]() {
+                    // НЕМЕДЛЕННОЕ обновление при перемещении точки
+                    updateTriangle();
+                    emit pointPositionChanging(); // Явно испускаем сигнал
+                });
                 connect(point, &DragPoint::dragFinished, this, [this]() {
                     updateTriangle();
                     emit dragFinished();
@@ -271,9 +275,12 @@ void TriangleScene::mouseMoveEvent(QGraphicsSceneMouseEvent* event)
                 point->setPos(point->pos() + delta);
             }
         }
+
+        // НЕМЕДЛЕННОЕ обновление треугольника и отправка сигналов
         updateTriangle();
-        // Немедленно отправляем сигнал об изменении
+        emit pointPositionChanging(); // Добавляем этот сигнал
         emit triangleUpdated();
+
         event->accept();
         return;
     }

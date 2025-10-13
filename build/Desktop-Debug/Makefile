@@ -54,20 +54,24 @@ OBJECTS_DIR   = ./
 
 SOURCES       = ../../main.cpp \
 		../../dragpoint.cpp \
+		../../functioninputdialog.cpp \
 		../../trianglescene.cpp \
 		../../mainwindow.cpp \
 		../../coordtransform.cpp \
 		../../spherewidget.cpp moc_dragpoint.cpp \
+		moc_functioninputdialog.cpp \
 		moc_trianglescene.cpp \
 		moc_mainwindow.cpp \
 		moc_spherewidget.cpp
 OBJECTS       = main.o \
 		dragpoint.o \
+		functioninputdialog.o \
 		trianglescene.o \
 		mainwindow.o \
 		coordtransform.o \
 		spherewidget.o \
 		moc_dragpoint.o \
+		moc_functioninputdialog.o \
 		moc_trianglescene.o \
 		moc_mainwindow.o \
 		moc_spherewidget.o
@@ -190,11 +194,13 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/yacc.prf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/lex.prf \
 		../../../../TS.pro ../../dragpoint.h \
+		../../functioninputdialog.h \
 		../../trianglescene.h \
 		../../mainwindow.h \
 		../../coordtransform.h \
 		../../spherewidget.h ../../main.cpp \
 		../../dragpoint.cpp \
+		../../functioninputdialog.cpp \
 		../../trianglescene.cpp \
 		../../mainwindow.cpp \
 		../../coordtransform.cpp \
@@ -476,8 +482,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../../dragpoint.h ../../trianglescene.h ../../mainwindow.h ../../coordtransform.h ../../spherewidget.h $(DISTDIR)/
-	$(COPY_FILE) --parents ../../main.cpp ../../dragpoint.cpp ../../trianglescene.cpp ../../mainwindow.cpp ../../coordtransform.cpp ../../spherewidget.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../../dragpoint.h ../../functioninputdialog.h ../../trianglescene.h ../../mainwindow.h ../../coordtransform.h ../../spherewidget.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../../main.cpp ../../dragpoint.cpp ../../functioninputdialog.cpp ../../trianglescene.cpp ../../mainwindow.cpp ../../coordtransform.cpp ../../spherewidget.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -509,13 +515,18 @@ compiler_moc_predefs_clean:
 moc_predefs.h: /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp
 	g++ -pipe -g -std=gnu++1z -Wall -Wextra -fPIC -dM -E -o moc_predefs.h /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp
 
-compiler_moc_header_make_all: moc_dragpoint.cpp moc_trianglescene.cpp moc_mainwindow.cpp moc_spherewidget.cpp
+compiler_moc_header_make_all: moc_dragpoint.cpp moc_functioninputdialog.cpp moc_trianglescene.cpp moc_mainwindow.cpp moc_spherewidget.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) moc_dragpoint.cpp moc_trianglescene.cpp moc_mainwindow.cpp moc_spherewidget.cpp
+	-$(DEL_FILE) moc_dragpoint.cpp moc_functioninputdialog.cpp moc_trianglescene.cpp moc_mainwindow.cpp moc_spherewidget.cpp
 moc_dragpoint.cpp: ../../dragpoint.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../dragpoint.h -o moc_dragpoint.cpp
+
+moc_functioninputdialog.cpp: ../../functioninputdialog.h \
+		moc_predefs.h \
+		/usr/lib/qt6/libexec/moc
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../functioninputdialog.h -o moc_functioninputdialog.cpp
 
 moc_trianglescene.cpp: ../../trianglescene.h \
 		../../dragpoint.h \
@@ -527,6 +538,7 @@ moc_mainwindow.cpp: ../../mainwindow.h \
 		../../trianglescene.h \
 		../../dragpoint.h \
 		../../spherewidget.h \
+		../../functioninputdialog.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../mainwindow.h -o moc_mainwindow.cpp
@@ -556,11 +568,15 @@ compiler_clean: compiler_moc_predefs_clean compiler_moc_header_clean
 main.o: ../../main.cpp ../../mainwindow.h \
 		../../trianglescene.h \
 		../../dragpoint.h \
-		../../spherewidget.h
+		../../spherewidget.h \
+		../../functioninputdialog.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../../main.cpp
 
 dragpoint.o: ../../dragpoint.cpp ../../dragpoint.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o dragpoint.o ../../dragpoint.cpp
+
+functioninputdialog.o: ../../functioninputdialog.cpp ../../functioninputdialog.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o functioninputdialog.o ../../functioninputdialog.cpp
 
 trianglescene.o: ../../trianglescene.cpp ../../trianglescene.h \
 		../../dragpoint.h
@@ -570,6 +586,7 @@ mainwindow.o: ../../mainwindow.cpp ../../mainwindow.h \
 		../../trianglescene.h \
 		../../dragpoint.h \
 		../../spherewidget.h \
+		../../functioninputdialog.h \
 		../../coordtransform.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../../mainwindow.cpp
 
@@ -582,6 +599,9 @@ spherewidget.o: ../../spherewidget.cpp ../../spherewidget.h \
 
 moc_dragpoint.o: moc_dragpoint.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_dragpoint.o moc_dragpoint.cpp
+
+moc_functioninputdialog.o: moc_functioninputdialog.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_functioninputdialog.o moc_functioninputdialog.cpp
 
 moc_trianglescene.o: moc_trianglescene.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_trianglescene.o moc_trianglescene.cpp

@@ -12,6 +12,9 @@ class FunctionInputDialog : public QDialog
 {
     Q_OBJECT
 
+public slots:
+    void importFromFile();
+
 public:
     explicit FunctionInputDialog(QWidget *parent = nullptr);
     ~FunctionInputDialog();
@@ -26,6 +29,8 @@ public:
     void setFunctions(const QStringList &functions);
 
 private:
+    QString extractFunction(const QString& line);
+    QPushButton* importButton;
     QLineEdit *x1Edit, *y1Edit, *x2Edit, *y2Edit, *x3Edit, *y3Edit;
 };
 

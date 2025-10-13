@@ -1,4 +1,13 @@
 #include "functioninputdialog.h"
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QGroupBox>
+#include <QLabel>
+#include <QPushButton>
+#include <QFileDialog>
+#include <QFile>
+#include <QTextStream>
+#include <QMessageBox>
 
 FunctionInputDialog::FunctionInputDialog(QWidget *parent) : QDialog(parent)
 {
@@ -41,7 +50,7 @@ FunctionInputDialog::FunctionInputDialog(QWidget *parent) : QDialog(parent)
     mainLayout->addWidget(point3Group, 2, 0, 1, 2);
 
     // Info label
-    QLabel *infoLabel = new QLabel("Use variable 't' for time. Supported functions: sin, cos, tan, exp, log, sqrt, etc.");
+    QLabel *infoLabel = new QLabel("Use variable 't' for time. Supported functions: sin, cos, tan, exp, log, sqrt. Example: 50 + 20*cos(t)");
     infoLabel->setStyleSheet("QLabel { color: #666; font-style: italic; padding: 5px; }");
     infoLabel->setWordWrap(true);
     mainLayout->addWidget(infoLabel, 3, 0, 1, 2);
@@ -50,11 +59,13 @@ FunctionInputDialog::FunctionInputDialog(QWidget *parent) : QDialog(parent)
     QPushButton *okButton = new QPushButton("OK");
     QPushButton *cancelButton = new QPushButton("Cancel");
     QPushButton *resetButton = new QPushButton("Reset to Default");
+    importButton = new QPushButton("Import from File"); // Новая кнопка
 
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     buttonLayout->addWidget(resetButton);
     buttonLayout->addStretch();
     buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(importButton); // Добавляем кнопку импорта
     buttonLayout->addWidget(cancelButton);
 
     mainLayout->addLayout(buttonLayout, 4, 0, 1, 2);
@@ -69,6 +80,7 @@ FunctionInputDialog::FunctionInputDialog(QWidget *parent) : QDialog(parent)
         x3Edit->setText("75 + 25*cos(0.5*t)");
         y3Edit->setText("100 + 25*sin(0.5*t)");
     });
+    connect(importButton, &QPushButton::clicked, this, &FunctionInputDialog::importFromFile);
 }
 
 FunctionInputDialog::~FunctionInputDialog() {}
@@ -89,4 +101,82 @@ void FunctionInputDialog::setFunctions(const QStringList &functions) {
         x3Edit->setText(functions[4]);
         y3Edit->setText(functions[5]);
     }
+}
+
+void FunctionInputDialog::importFromFile()
+{
+    QString fileName = QFileDialog::getOpenFileName(this,
+                                                    "Import Functions from File",
+                                                    "",
+                                                    "Text Files (*.txt);;All Files (*)");
+
+    if (fileName.isEmpty()) return;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "Import Error",
+                             "Cannot open file: " + fileName);
+        return;
+    }
+
+    QTextStream in(&file);
+    QStringList functions;
+
+    // Читаем файл и ищем функции
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+
+        // Пропускаем пустые строки и комментарии
+        if (line.isEmpty() || line.startsWith("#") || line.startsWith("//")) {
+            continue;
+        }
+
+        // Пытаемся найти функции в формате: x1(t) = ... или просто x1 = ...
+        if (line.contains("x1") && line.contains("=")) {
+            functions.append(extractFunction(line));
+        } else if (line.contains("y1") && line.contains("=")) {
+            functions.append(extractFunction(line));
+        } else if (line.contains("x2") && line.contains("=")) {
+            functions.append(extractFunction(line));
+        } else if (line.contains("y2") && line.contains("=")) {
+            functions.append(extractFunction(line));
+        } else if (line.contains("x3") && line.contains("=")) {
+            functions.append(extractFunction(line));
+        } else if (line.contains("y3") && line.contains("=")) {
+            functions.append(extractFunction(line));
+        }
+    }
+
+    file.close();
+
+    if (functions.size() >= 6) {
+        x1Edit->setText(functions[0]);
+        y1Edit->setText(functions[1]);
+        x2Edit->setText(functions[2]);
+        y2Edit->setText(functions[3]);
+        x3Edit->setText(functions[4]);
+        y3Edit->setText(functions[5]);
+        QMessageBox::information(this, "Import Successful",
+                                 "Functions imported successfully from: " + fileName);
+    } else {
+        QMessageBox::warning(this, "Import Error",
+                             "Could not find all required functions in the file.\n"
+                             "Required functions: x1, y1, x2, y2, x3, y3");
+    }
+}
+
+QString FunctionInputDialog::extractFunction(const QString& line)
+{
+    // Извлекаем выражение после знака '='
+    int equalsPos = line.indexOf('=');
+    if (equalsPos == -1) return "";
+
+    QString expression = line.mid(equalsPos + 1).trimmed();
+
+    // Убираем возможные точки с запятой в конце
+    if (expression.endsWith(';')) {
+        expression.chop(1);
+    }
+
+    return expression.trimmed();
 }
