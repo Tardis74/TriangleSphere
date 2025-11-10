@@ -8,7 +8,6 @@
 #include <QInputDialog>
 #include <QGraphicsSceneMouseEvent>
 #include <QMessageBox>
-#include <limits>
 
 TriangleScene::TriangleScene(QObject* parent) : QGraphicsScene(parent)
 {
@@ -333,6 +332,10 @@ void TriangleScene::setMasses(const QList<double>& masses) {
 
         // Обновляем треугольник
         updateTriangle();
+
+        // СИГНАЛИЗИРУЕМ ОБ ИЗМЕНЕНИИ МАСС ДЛЯ ОБНОВЛЕНИЯ СФЕРЫ
+        emit massesChanged(masses); // Добавьте этот сигнал
+        qDebug() << "TriangleScene: masses changed signal emitted" << masses;
     }
     catch (const std::exception& e) {
         qWarning() << "Exception in setMasses:" << e.what();

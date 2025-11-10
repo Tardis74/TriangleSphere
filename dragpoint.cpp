@@ -22,7 +22,7 @@ QVariant DragPoint::itemChange(GraphicsItemChange change, const QVariant &value)
             return QGraphicsEllipseItem::itemChange(change, pos());
         }
 
-        emit positionChanged(); // Немедленно отправляем сигнал об изменении
+        emit positionChanged();
     }
     return QGraphicsEllipseItem::itemChange(change, value);
 }
@@ -38,22 +38,19 @@ double DragPoint::mass() const {
 
 void DragPoint::mouseMoveEvent(QGraphicsSceneMouseEvent* event) {
     QGraphicsEllipseItem::mouseMoveEvent(event);
-    // Немедленно отправляем сигнал во время перемещения
     emit positionChanging();
-    emit positionChanged(); // Добавляем этот сигнал для немедленного обновления
+    emit positionChanged();
 }
 
 void DragPoint::setMass(double mass) {
     if (qFuzzyCompare(m_mass, mass))
         return;
 
-    // Check for valid mass
     if (std::isnan(mass) || std::isinf(mass)) {
         qWarning() << "Attempt to set invalid mass:" << mass;
         return;
     }
 
-    // Check for non-positive mass
     if (mass <= 0) {
         qWarning() << "Attempt to set non-positive mass:" << mass;
         return;

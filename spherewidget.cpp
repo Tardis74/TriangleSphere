@@ -9,9 +9,9 @@
 #include <QGraphicsOpacityEffect>
 
 SphereWidget::SphereWidget(QWidget* parent)
-    : QOpenGLWidget(parent), spherePoint(0, 0, 1), rotation(1, 0, 0, 0), m_masses({1.0, 1.0, 1.0}),
-    distance(5.0f), isDraggingPoint(false), isRotatingSphere(false),
-    m_showTrajectory(false)
+    : QOpenGLWidget(parent), m_sphereRadius(1.0), spherePoint(0, 0, 1), rotation(1, 0, 0, 0),
+    m_masses({1.0, 1.0, 1.0}), distance(5.0f), isDraggingPoint(false),
+    isRotatingSphere(false), m_showTrajectory(false)
 {
     m_trajectorySegments.append(QVector<QVector3D>());
     m_trajectorySegmentColors.append(QVector<QVector3D>());
@@ -134,8 +134,16 @@ void SphereWidget::paintGL() {
     // РИСУЕМ ТРАЕКТОРИЮ ДО ТОЧКИ (чтобы она была под точкой)
     drawTrajectory();
 
+    if (m_showComplexPlane) {
+        drawComplexPlane();
+    }
+
     // Затем рисуем точку
     drawPoint();
+
+    // РИСУЕМ ИНФОРМАЦИЮ О РАДИУСЕ
+    drawRadiusInfo();
+
     glEnable(GL_LIGHTING);
 
     // Затем рисуем прозрачную сферу
@@ -291,7 +299,7 @@ void SphereWidget::drawSphere() {
     glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
 
     // Устанавливаем серый цвет с прозрачностью
-    glColor4f(0.7f, 0.7f, 0.7f, 1.0f);
+    glColor4f(0.7f, 0.7f, 0.7f, 0.75f);
 
     // Отключаем specular для устранения цветных бликов
     GLfloat mat_specular[] = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -560,6 +568,7 @@ void SphereWidget::drawSpecialLines() {
 
 void SphereWidget::setMasses(const QList<double>& masses)
 {
+    qDebug() << "SphereWidget::setMasses called with masses:" << masses;
     if (masses.size() != 3) {
         qWarning() << "SphereWidget::setMasses requires exactly 3 masses";
         return;
@@ -601,6 +610,8 @@ void SphereWidget::drawCollisionPoints() {
 
 void SphereWidget::drawPoles() {
     // Северный и южный полюса
+    glDisable(GL_LIGHTING);
+
     glColor3f(1.0f, 1.0f, 0.0f); // Желтый цвет
     glPointSize(10.0f);
     glBegin(GL_POINTS);
@@ -608,6 +619,8 @@ void SphereWidget::drawPoles() {
     glVertex3f(0.0f, -1.0f, 0.0f);  // Южный полюс
     glEnd();
     glPointSize(1.0f);
+
+    glEnable(GL_LIGHTING);
 }
 
 void SphereWidget::setShowTrajectory(bool show)
@@ -688,4 +701,98 @@ void SphereWidget::breakTrajectory()
         m_trajectorySegments.append(QVector<QVector3D>());
         m_trajectorySegmentColors.append(QVector<QVector3D>());
     }
+}
+
+// Новый метод для установки радиуса
+void SphereWidget::setSphereRadius(double radius) {
+    if (radius > 0 && !std::isnan(radius) && !std::isinf(radius)) {
+        m_sphereRadius = radius;
+        update();
+    }
+}
+
+void SphereWidget::setShowComplexPlane(bool show) {
+    m_showComplexPlane = show;
+    update();
+}
+
+void SphereWidget::setComplexPlanePoint(const QVector3D& rawCoords) {
+    m_complexPlanePoint = rawCoords;
+    if (m_showComplexPlane) {
+        update();
+    }
+}
+void SphereWidget::drawComplexPlane() {
+    glDisable(GL_LIGHTING);
+
+    // Рисуем плоскость (диск) в плоскости XZ (xi2-xi3)
+    glColor4f(0.2f, 0.4f, 0.8f, 0.3f);
+    glBegin(GL_TRIANGLE_FAN);
+    glVertex3f(0, 0, 0); // Центр
+
+    const int segments = 36;
+    float radius = 1.5f; // Размер плоскости
+
+    for (int i = 0; i <= segments; i++) {
+        float theta = 2.0f * M_PI * float(i) / float(segments);
+        float x = radius * cos(theta);
+        float z = radius * sin(theta);
+        glVertex3f(x, 0, z);
+    }
+    glEnd();
+
+    // Рисуем контур плоскости
+    glColor4f(0.1f, 0.2f, 0.6f, 0.8f);
+    glLineWidth(2.0f);
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < segments; i++) {
+        float theta = 2.0f * M_PI * float(i) / float(segments);
+        float x = radius * cos(theta);
+        float z = radius * sin(theta);
+        glVertex3f(x, 0, z);
+    }
+    glEnd();
+
+    // Рисуем оси комплексной плоскости
+    glColor3f(1.0f, 1.0f, 0.0f); // Желтый цвет для осей
+    glLineWidth(1.5f);
+    glBegin(GL_LINES);
+    // Ось X (xi2)
+    glVertex3f(-radius, 0, 0);
+    glVertex3f(radius, 0, 0);
+    // Ось Z (xi3)
+    glVertex3f(0, 0, -radius);
+    glVertex3f(0, 0, radius);
+    glEnd();
+
+    // Подписи осей
+    // (В OpenGL без шейдеров текст сложно рисовать, поэтому пропускаем)
+
+    // Рисуем проекцию точки на комплексную плоскость
+    if (!m_complexPlanePoint.isNull()) {
+        // Нормализуем координаты для отображения на плоскости радиуса 1.5
+        QVector3D normalized = m_complexPlanePoint.normalized() * 1.5f;
+
+        glColor3f(1.0f, 0.0f, 1.0f); // Пурпурный цвет для проекции
+        glPointSize(8.0f);
+        glBegin(GL_POINTS);
+        glVertex3f(normalized.x(), 0, normalized.z());
+        glEnd();
+
+        // Линия от центра к проекции
+        glColor3f(1.0f, 0.5f, 1.0f);
+        glLineWidth(1.0f);
+        glBegin(GL_LINES);
+        glVertex3f(0, 0, 0);
+        glVertex3f(normalized.x(), 0, normalized.z());
+        glEnd();
+    }
+
+    glEnable(GL_LIGHTING);
+}
+
+void SphereWidget::drawRadiusInfo() {
+    // В обычном OpenGL без шейдеров отрисовка текста сложна,
+    // поэтому информацию о радиусе будем выводить через интерфейс Qt
+    // Этот метод оставлен для возможного расширения
 }

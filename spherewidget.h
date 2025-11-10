@@ -12,6 +12,14 @@
 class SphereWidget : public QOpenGLWidget, protected QOpenGLFunctions {
     Q_OBJECT
 public:
+    // Новые методы для радиуса и комплексной плоскости
+    void setSphereRadius(double radius);
+    double getSphereRadius() const { return m_sphereRadius; }
+
+    // Методы для комплексной плоскости
+    void setShowComplexPlane(bool show);
+    void setComplexPlanePoint(const QVector3D& rawCoords);
+
     QVector<QVector3D> getEquilateralPoints() const;
     void setDrawingEnabled(bool enabled) { m_drawingEnabled = enabled; }
     bool isDrawingEnabled() const { return m_drawingEnabled; }
@@ -58,6 +66,14 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
 
 private:
+    double m_sphereRadius = 1.0;
+    bool m_showComplexPlane = false;
+    QVector3D m_complexPlanePoint;
+
+    // Новые методы рисования
+    void drawComplexPlane();
+    void drawRadiusInfo();
+
     QVector3D spherePoint;
     QMatrix4x4 projection;
     QMatrix4x4 modelView;

@@ -1,11 +1,33 @@
 #include "coordtransform.h"
-#include <cmath>
 #include <complex>
+#include <cmath>
 #include <QDebug>
-#include <QtMath>
-#include <QLineF>
+#include <QLineF> // Добавляем недостающий заголовок
 
 QVector3D CoordTransform::transformToSphere(const QList<QPointF>& points, const QList<double>& masses) {
+    try {
+        QVector3D rawCoords = getRawSphereCoordinates(points, masses);
+        if (rawCoords.isNull()) return QVector3D(0, 0, 0);
+
+        // Нормализуем к единичной сфере
+        double norm = rawCoords.length();
+        if (norm <= 0 || std::isnan(norm) || std::isinf(norm)) {
+            return QVector3D(0, 0, 0);
+        }
+
+        return rawCoords / norm;
+    }
+    catch (const std::exception& e) {
+        qWarning() << "Exception in transformToSphere:" << e.what();
+        return QVector3D(0, 0, 0);
+    }
+    catch (...) {
+        qWarning() << "Unknown exception in transformToSphere";
+        return QVector3D(0, 0, 0);
+    }
+}
+
+QVector3D CoordTransform::getRawSphereCoordinates(const QList<QPointF>& points, const QList<double>& masses) {
     try {
         if (points.size() != 3 || masses.size() != 3) {
             qWarning() << "Invalid points or masses size";
@@ -58,21 +80,14 @@ QVector3D CoordTransform::transformToSphere(const QList<QPointF>& points, const 
         double y = xi3;
         double z = xi1;
 
-        // Normalize to get point on sphere
-        double norm = std::sqrt(x*x + y*y + z*z);
-        if (norm <= 0 || std::isnan(norm) || std::isinf(norm)) {
-            qWarning() << "Invalid norm:" << norm;
-            return QVector3D(0, 0, 0);
-        }
-
-        return QVector3D(x/norm, y/norm, z/norm);
+        return QVector3D(x, y, z);
     }
     catch (const std::exception& e) {
-        qWarning() << "Exception in transformToSphere:" << e.what();
+        qWarning() << "Exception in getRawSphereCoordinates:" << e.what();
         return QVector3D(0, 0, 0);
     }
     catch (...) {
-        qWarning() << "Unknown exception in transformToSphere";
+        qWarning() << "Unknown exception in getRawSphereCoordinates";
         return QVector3D(0, 0, 0);
     }
 }
@@ -135,8 +150,12 @@ QVector<QPointF> CoordTransform::transformFromSphere(const QVector3D& spherePoin
         r2 -= centroid;
         r3 -= centroid;
 
-        // Scale to desired size
-        double currentScale = qMax(qMax(QLineF(r1, r2).length(), QLineF(r2, r3).length()), QLineF(r3, r1).length());
+        // Scale to desired size - исправленная строка с QLineF
+        double side1 = std::sqrt(std::pow(r2.x() - r1.x(), 2) + std::pow(r2.y() - r1.y(), 2));
+        double side2 = std::sqrt(std::pow(r3.x() - r2.x(), 2) + std::pow(r3.y() - r2.y(), 2));
+        double side3 = std::sqrt(std::pow(r1.x() - r3.x(), 2) + std::pow(r1.y() - r3.y(), 2));
+        double currentScale = qMax(side1, qMax(side2, side3));
+        
         if (currentScale <= 0 || std::isnan(currentScale) || std::isinf(currentScale)) {
             return QVector<QPointF>();
         }
@@ -161,5 +180,102 @@ QVector<QPointF> CoordTransform::transformFromSphere(const QVector3D& spherePoin
     catch (...) {
         qWarning() << "Unknown exception in transformFromSphere";
         return QVector<QPointF>();
+    }
+}
+
+QVector<ComplexSolution> CoordTransform::transformZetaToZ(const QPointF& zetaPoint)
+{
+    QVector<ComplexSolution> solutions;
+    
+    try {
+        std::complex<double> zeta(zetaPoint.x(), zetaPoint.y());
+        
+        // Вычисляем промежуточные величины
+        std::complex<double> zeta2 = zeta * zeta;
+        std::complex<double> inner_sqrt = std::sqrt(zeta2 - zeta + 1.0);
+        
+        // 4 комбинации знаков
+        std::complex<double> signs[4][2] = {
+            {+1.0, -1.0}, // ветвь 0: +, -
+            {+1.0, +1.0}, // ветвь 1: +, +
+            {-1.0, -1.0}, // ветвь 2: -, -
+            {-1.0, +1.0}  // ветвь 3: -, +
+        };
+        
+        QColor colors[4] = {
+            QColor(255, 0, 0),    // Красный - ветвь 0
+            QColor(0, 255, 0),    // Зеленый - ветвь 1  
+            QColor(0, 0, 255),    // Синий - ветвь 2
+            QColor(255, 165, 0)   // Оранжевый - ветвь 3
+        };
+        
+        for (int i = 0; i < 4; ++i) {
+            std::complex<double> sign1 = signs[i][0];
+            std::complex<double> sign2 = signs[i][1];
+            
+            // Вычисляем выражение под корнем в числителе
+            std::complex<double> inner_expr = sign1 * 2.0 * (zeta + 1.0) * inner_sqrt + 2.0 * zeta2 + zeta - 1.0;
+            
+            // Проверяем, что выражение под корнем не отрицательное (в вещественном смысле)
+            if (std::abs(inner_expr) < 1e10) { // Фильтруем слишком большие значения
+                std::complex<double> numerator_sqrt = std::sqrt(inner_expr);
+                
+                // Вычисляем z_i согласно формуле (4.6)
+                std::complex<double> z_i = (sign1 * numerator_sqrt / std::sqrt(2.0))
+                                         + (sign2 * inner_sqrt / std::sqrt(2.0))
+                                         - (zeta / std::sqrt(2.0));
+                
+                // Фильтруем валидные решения (не NaN и не бесконечность)
+                if (!std::isnan(z_i.real()) && !std::isnan(z_i.imag()) &&
+                    !std::isinf(z_i.real()) && !std::isinf(z_i.imag())) {
+                    
+                    // Ограничиваем значения для отображения
+                    double real_part = std::max(-5.0, std::min(5.0, z_i.real()));
+                    double imag_part = std::max(-5.0, std::min(5.0, z_i.imag()));
+                    
+                    ComplexSolution solution;
+                    solution.point = QPointF(real_part, imag_part);
+                    solution.color = colors[i];
+                    solution.branch = i;
+                    solutions.append(solution);
+                }
+            }
+        }
+        
+        qDebug() << "Found" << solutions.size() << "solutions for ζ =" << zetaPoint.x() << "+ i" << zetaPoint.y();
+        
+    } catch (const std::exception& e) {
+        qWarning() << "Exception in transformZetaToZ:" << e.what();
+    }
+    
+    return solutions;
+}
+
+QPointF CoordTransform::transformZToZeta(const QPointF& zPoint)
+{
+    try {
+        std::complex<double> z(zPoint.x(), zPoint.y());
+        
+        // Прямое преобразование: ζ = z(√8 + z³)/(1 - √8 z³)
+        double sqrt8 = std::sqrt(8.0);
+        std::complex<double> z3 = z * z * z;
+        
+        // Проверяем знаменатель
+        std::complex<double> denominator = 1.0 - sqrt8 * z3;
+        if (std::abs(denominator) < 1e-10) {
+            return QPointF(0, 0); // Избегаем деления на ноль
+        }
+        
+        std::complex<double> zeta = z * (sqrt8 + z3) / denominator;
+        
+        // Ограничиваем значения
+        double real_part = std::max(-2.0, std::min(2.0, zeta.real()));
+        double imag_part = std::max(-2.0, std::min(2.0, zeta.imag()));
+        
+        return QPointF(real_part, imag_part);
+        
+    } catch (const std::exception& e) {
+        qWarning() << "Exception in transformZToZeta:" << e.what();
+        return QPointF(0, 0);
     }
 }

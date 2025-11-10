@@ -17,6 +17,8 @@
 #include <mutex>
 #include "trianglescene.h"
 #include "spherewidget.h"
+#include "complexplaneview.h"
+#include "complexplaneview2.h"
 #include <QCheckBox>
 
 class MainWindow : public QMainWindow
@@ -41,26 +43,33 @@ private slots:
 
     // Animation slots
     void onAnimationModeClicked();
-    void onAnimationStart();
-    void onAnimationPause();
     void onAnimationReset();
     void onTimeSliderChanged(int value);
     void updateAnimation();
     void updateTimeLabel();
 
 private:
+    double calculateTriangleSize(const QList<QPointF>& points);
+
+    // Инициализируем все указатели nullptr
     QLabel* equilateralPointsLabel = nullptr;
     QCheckBox* showTrajectoryCheckbox = nullptr;
     QLineEdit* maxTimeEdit = nullptr;
     QLineEdit* speedEdit = nullptr;
 
     QSplitter* mainSplitter = nullptr;
+    QSplitter* rightSplitter = nullptr;
+    QSplitter* leftSplitter = nullptr;
     SphereWidget* sphereWidget = nullptr;
+    ComplexPlaneView* complexPlaneView1 = nullptr;
+    ComplexPlaneView2* complexPlaneView2 = nullptr;
     QGraphicsView* view = nullptr;
     TriangleScene* scene = nullptr;
     QLabel* sphereCoordsLabel = nullptr;
     QLabel* coordsLabel = nullptr;
     QLabel* timeLabel = nullptr;
+    QLabel* complexCoordsLabel = nullptr;
+    QLabel* radiusLabel = nullptr;
     std::atomic<bool> blockSceneUpdates;
     QVector3D lastSpherePoint;
     const double updateThreshold = 0.001;
@@ -83,13 +92,14 @@ private:
 
     // Анимация
     QPushButton* animationModeButton = nullptr;
-    QPushButton* animationStartButton = nullptr;
-    QPushButton* animationPauseButton = nullptr;
+    QPushButton* animationToggleButton = nullptr;
     QPushButton* animationResetButton = nullptr;
     QSlider* timeSlider = nullptr;
     QTimer* animationTimer = nullptr;
 
+    // Переменные анимации
     bool isAnimationMode = false;
+    bool isAnimationRunning = false;
     double currentTime = 0.0;
     double timeStep = 0.1;
     double maxTime = 10.0;
@@ -98,6 +108,8 @@ private:
 
     void evaluateFunctions(double t);
     double evaluateExpression(const QString& expression, double t);
+    void autoScaleTriangleView();
+    void onAnimationToggle(); // Переносим объявление сюда
 };
 
 #endif // MAINWINDOW_H

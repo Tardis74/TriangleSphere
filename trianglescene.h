@@ -26,6 +26,7 @@ signals:
     void sceneDragStarted();
     void sceneDragFinished();
     void pointPositionChanging();
+    void massesChanged(const QList<double>& masses);
 
 protected:
     void mousePressEvent(QGraphicsSceneMouseEvent* event) override;

@@ -53,28 +53,36 @@ OBJECTS_DIR   = ./
 ####### Files
 
 SOURCES       = ../../main.cpp \
+		../../complexplaneview.cpp \
 		../../dragpoint.cpp \
 		../../functioninputdialog.cpp \
 		../../trianglescene.cpp \
 		../../mainwindow.cpp \
 		../../coordtransform.cpp \
-		../../spherewidget.cpp moc_dragpoint.cpp \
+		../../spherewidget.cpp \
+		../../complexplaneview2.cpp moc_dragpoint.cpp \
+		moc_complexplaneview.cpp \
 		moc_functioninputdialog.cpp \
 		moc_trianglescene.cpp \
 		moc_mainwindow.cpp \
-		moc_spherewidget.cpp
+		moc_spherewidget.cpp \
+		moc_complexplaneview2.cpp
 OBJECTS       = main.o \
+		complexplaneview.o \
 		dragpoint.o \
 		functioninputdialog.o \
 		trianglescene.o \
 		mainwindow.o \
 		coordtransform.o \
 		spherewidget.o \
+		complexplaneview2.o \
 		moc_dragpoint.o \
+		moc_complexplaneview.o \
 		moc_functioninputdialog.o \
 		moc_trianglescene.o \
 		moc_mainwindow.o \
-		moc_spherewidget.o
+		moc_spherewidget.o \
+		moc_complexplaneview2.o
 DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/unix.conf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/common/linux.conf \
@@ -194,17 +202,21 @@ DIST          = /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/yacc.prf \
 		/usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/lex.prf \
 		../../../../TS.pro ../../dragpoint.h \
+		../../complexplaneview.h \
 		../../functioninputdialog.h \
 		../../trianglescene.h \
 		../../mainwindow.h \
 		../../coordtransform.h \
-		../../spherewidget.h ../../main.cpp \
+		../../spherewidget.h \
+		../../complexplaneview2.h ../../main.cpp \
+		../../complexplaneview.cpp \
 		../../dragpoint.cpp \
 		../../functioninputdialog.cpp \
 		../../trianglescene.cpp \
 		../../mainwindow.cpp \
 		../../coordtransform.cpp \
-		../../spherewidget.cpp
+		../../spherewidget.cpp \
+		../../complexplaneview2.cpp
 QMAKE_TARGET  = TriangleSphere
 DESTDIR       = 
 TARGET        = TriangleSphere
@@ -482,8 +494,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../../dragpoint.h ../../functioninputdialog.h ../../trianglescene.h ../../mainwindow.h ../../coordtransform.h ../../spherewidget.h $(DISTDIR)/
-	$(COPY_FILE) --parents ../../main.cpp ../../dragpoint.cpp ../../functioninputdialog.cpp ../../trianglescene.cpp ../../mainwindow.cpp ../../coordtransform.cpp ../../spherewidget.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../../dragpoint.h ../../complexplaneview.h ../../functioninputdialog.h ../../trianglescene.h ../../mainwindow.h ../../coordtransform.h ../../spherewidget.h ../../complexplaneview2.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../../main.cpp ../../complexplaneview.cpp ../../dragpoint.cpp ../../functioninputdialog.cpp ../../trianglescene.cpp ../../mainwindow.cpp ../../coordtransform.cpp ../../spherewidget.cpp ../../complexplaneview2.cpp $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -515,13 +527,18 @@ compiler_moc_predefs_clean:
 moc_predefs.h: /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp
 	g++ -pipe -g -std=gnu++1z -Wall -Wextra -fPIC -dM -E -o moc_predefs.h /usr/lib/x86_64-linux-gnu/qt6/mkspecs/features/data/dummy.cpp
 
-compiler_moc_header_make_all: moc_dragpoint.cpp moc_functioninputdialog.cpp moc_trianglescene.cpp moc_mainwindow.cpp moc_spherewidget.cpp
+compiler_moc_header_make_all: moc_dragpoint.cpp moc_complexplaneview.cpp moc_functioninputdialog.cpp moc_trianglescene.cpp moc_mainwindow.cpp moc_spherewidget.cpp moc_complexplaneview2.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) moc_dragpoint.cpp moc_functioninputdialog.cpp moc_trianglescene.cpp moc_mainwindow.cpp moc_spherewidget.cpp
+	-$(DEL_FILE) moc_dragpoint.cpp moc_complexplaneview.cpp moc_functioninputdialog.cpp moc_trianglescene.cpp moc_mainwindow.cpp moc_spherewidget.cpp moc_complexplaneview2.cpp
 moc_dragpoint.cpp: ../../dragpoint.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../dragpoint.h -o moc_dragpoint.cpp
+
+moc_complexplaneview.cpp: ../../complexplaneview.h \
+		moc_predefs.h \
+		/usr/lib/qt6/libexec/moc
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../complexplaneview.h -o moc_complexplaneview.cpp
 
 moc_functioninputdialog.cpp: ../../functioninputdialog.h \
 		moc_predefs.h \
@@ -538,16 +555,23 @@ moc_mainwindow.cpp: ../../mainwindow.h \
 		../../trianglescene.h \
 		../../dragpoint.h \
 		../../spherewidget.h \
-		../../functioninputdialog.h \
+		../../complexplaneview.h \
+		../../complexplaneview2.h \
+		../../coordtransform.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../mainwindow.h -o moc_mainwindow.cpp
 
 moc_spherewidget.cpp: ../../spherewidget.h \
-		../../dragpoint.h \
 		moc_predefs.h \
 		/usr/lib/qt6/libexec/moc
 	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../spherewidget.h -o moc_spherewidget.cpp
+
+moc_complexplaneview2.cpp: ../../complexplaneview2.h \
+		../../coordtransform.h \
+		moc_predefs.h \
+		/usr/lib/qt6/libexec/moc
+	/usr/lib/qt6/libexec/moc $(DEFINES) --include /home/sergey/Документы/TriangleSphere/TS/build/Desktop-Debug/moc_predefs.h -I/usr/lib/x86_64-linux-gnu/qt6/mkspecs/linux-g++ -I/home/sergey/Документы/TriangleSphere/TS -I/usr/include/x86_64-linux-gnu/qt6 -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGLWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtWidgets -I/usr/include/x86_64-linux-gnu/qt6/QtOpenGL -I/usr/include/x86_64-linux-gnu/qt6/QtGui -I/usr/include/x86_64-linux-gnu/qt6/QtTest -I/usr/include/x86_64-linux-gnu/qt6/QtCore -I. -I/usr/include/c++/13 -I/usr/include/x86_64-linux-gnu/c++/13 -I/usr/include/c++/13/backward -I/usr/lib/gcc/x86_64-linux-gnu/13/include -I/usr/local/include -I/usr/include/x86_64-linux-gnu -I/usr/include ../../complexplaneview2.h -o moc_complexplaneview2.cpp
 
 compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
@@ -569,8 +593,13 @@ main.o: ../../main.cpp ../../mainwindow.h \
 		../../trianglescene.h \
 		../../dragpoint.h \
 		../../spherewidget.h \
-		../../functioninputdialog.h
+		../../complexplaneview.h \
+		../../complexplaneview2.h \
+		../../coordtransform.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../../main.cpp
+
+complexplaneview.o: ../../complexplaneview.cpp ../../complexplaneview.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o complexplaneview.o ../../complexplaneview.cpp
 
 dragpoint.o: ../../dragpoint.cpp ../../dragpoint.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o dragpoint.o ../../dragpoint.cpp
@@ -586,19 +615,27 @@ mainwindow.o: ../../mainwindow.cpp ../../mainwindow.h \
 		../../trianglescene.h \
 		../../dragpoint.h \
 		../../spherewidget.h \
-		../../functioninputdialog.h \
-		../../coordtransform.h
+		../../complexplaneview.h \
+		../../complexplaneview2.h \
+		../../coordtransform.h \
+		../../functioninputdialog.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../../mainwindow.cpp
 
 coordtransform.o: ../../coordtransform.cpp ../../coordtransform.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o coordtransform.o ../../coordtransform.cpp
 
-spherewidget.o: ../../spherewidget.cpp ../../spherewidget.h \
-		../../dragpoint.h
+spherewidget.o: ../../spherewidget.cpp ../../spherewidget.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o spherewidget.o ../../spherewidget.cpp
+
+complexplaneview2.o: ../../complexplaneview2.cpp ../../complexplaneview2.h \
+		../../coordtransform.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o complexplaneview2.o ../../complexplaneview2.cpp
 
 moc_dragpoint.o: moc_dragpoint.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_dragpoint.o moc_dragpoint.cpp
+
+moc_complexplaneview.o: moc_complexplaneview.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_complexplaneview.o moc_complexplaneview.cpp
 
 moc_functioninputdialog.o: moc_functioninputdialog.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_functioninputdialog.o moc_functioninputdialog.cpp
@@ -611,6 +648,9 @@ moc_mainwindow.o: moc_mainwindow.cpp
 
 moc_spherewidget.o: moc_spherewidget.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_spherewidget.o moc_spherewidget.cpp
+
+moc_complexplaneview2.o: moc_complexplaneview2.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_complexplaneview2.o moc_complexplaneview2.cpp
 
 ####### Install
 

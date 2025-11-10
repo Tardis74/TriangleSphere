@@ -1,4 +1,3 @@
-
 #include "mainwindow.h"
 #include <QApplication>
 #include <QDebug>
@@ -13,17 +12,17 @@ void signalHandler(int signal)
 }
 
 int main(int argc, char* argv[]) {
-    // Установка обработчиков сигналов
+    // Устанавливаем атрибуты ДО создания QApplication
+    QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+
+    // Устанавливаем обработчики сигналов
     std::signal(SIGSEGV, signalHandler);
     std::signal(SIGABRT, signalHandler);
     std::signal(SIGFPE, signalHandler);
 
     try {
         QApplication app(argc, argv);
-
-        // Устанавливаем глобальные настройки для предотвращения проблем
-        QCoreApplication::setAttribute(Qt::AA_UseDesktopOpenGL);
-        QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
 
         MainWindow mainWindow;
         mainWindow.show();

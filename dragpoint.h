@@ -15,7 +15,6 @@ public:
     double mass() const;
     void setMass(double mass);
 
-    // Add this method to prevent unwanted movement
     void setPosSilent(const QPointF& pos) {
         setFlag(ItemSendsGeometryChanges, false);
         setPos(pos);
